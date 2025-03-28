@@ -1,0 +1,117 @@
+.certificate-preview {
+    background: white;
+    padding: 30px;
+    margin: 20px auto;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    max-width: 800px;
+}
+
+.certificate-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.certificate-title {
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.certificate-number {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 20px;
+}
+
+.certificate-section {
+    margin-bottom: 25px;
+    padding: 15px;
+    border-bottom: 1px solid #eee;
+}
+
+.section-title {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 15px;
+    color: #2c3e50;
+}
+
+.info-row {
+    display: flex;
+    margin-bottom: 10px;
+    align-items: flex-start;
+}
+
+.info-label {
+    width: 200px;
+    font-weight: bold;
+    color: #34495e;
+}
+
+.info-value {
+    flex: 1;
+}
+
+.bilingual-text {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.english-text {
+    font-family: 'Arial', sans-serif;
+}
+
+.amharic-text {
+    font-family: 'Noto Sans Ethiopic', sans-serif;
+}
+
+.signatures-section {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+}
+
+.signature-box {
+    text-align: center;
+    width: 45%;
+}
+
+.signature-label {
+    margin-bottom: 10px;
+    font-weight: bold;
+}
+
+.signature-image {
+    width: 200px;
+    height: 80px;
+    border: 1px solid #ddd;
+    margin: 10px auto;
+}
+
+.qr-code-section {
+    text-align: center;
+    margin-top: 30px;
+}
+
+.qr-code-image {
+    width: 150px;
+    height: 150px;
+    margin: 0 auto;
+}
+
+.verification-text {
+    margin-top: 10px;
+    font-size: 12px;
+    color: #666;
+}
+
+@media print {
+    .certificate-preview {
+        box-shadow: none;
+        margin: 0;
+        padding: 20px;
+    }
+}

@@ -1,0 +1,125 @@
+{
+  "landRegistration": [
+    {
+      "id": "LR001",
+      "date": "2024-01-15",
+      "reference": "LR-2024-001",
+      "type": "New Registration",
+      "details": "Land Registration in Addis Ababa",
+      "status": "Completed",
+      "owner": "Abebe Kebede",
+      "location": "Addis Ababa",
+      "parcelSize": "200 sq meters"
+    },
+    {
+      "id": "LR002",
+      "date": "2024-01-16",
+      "reference": "LR-2024-002",
+      "type": "Transfer",
+      "details": "Property Transfer in Bahir Dar",
+      "status": "Pending",
+      "owner": "Kebede Alemu",
+      "location": "Bahir Dar",
+      "parcelSize": "300 sq meters"
+    },
+    {
+      "id": "LR003",
+      "date": "2024-01-17",
+      "reference": "LR-2024-003",
+      "type": "New Registration",
+      "details": "Land Registration in Hawassa",
+      "status": "Completed",
+      "owner": "Almaz Tadesse",
+      "location": "Hawassa",
+      "parcelSize": "150 sq meters"
+    }
+  ],
+  "certificates": [
+    {
+      "id": "CERT001",
+      "date": "2024-01-15",
+      "reference": "CERT-2024-001",
+      "type": "Land Title",
+      "details": "Certificate issued to Abebe Kebede",
+      "status": "Issued",
+      "owner": "Abebe Kebede",
+      "validUntil": "2029-01-15",
+      "certificateType": "Original"
+    },
+    {
+      "id": "CERT002",
+      "date": "2024-01-16",
+      "reference": "CERT-2024-002",
+      "type": "Land Title",
+      "details": "Certificate issued to Kebede Alemu",
+      "status": "Pending",
+      "owner": "Kebede Alemu",
+      "validUntil": "2029-01-16",
+      "certificateType": "Original"
+    },
+    {
+      "id": "CERT003",
+      "date": "2024-01-17",
+      "reference": "CERT-2024-003",
+      "type": "Land Title",
+      "details": "Certificate issued to Almaz Tadesse",
+      "status": "Issued",
+      "owner": "Almaz Tadesse",
+      "validUntil": "2029-01-17",
+      "certificateType": "Duplicate"
+    }
+  ],
+  "parcels": [
+    {
+      "id": "PAR001",
+      "date": "2024-01-15",
+      "reference": "PAR-2024-001",
+      "type": "Residential",
+      "details": "Residential Plot in Bole",
+      "status": "Active",
+      "location": "Bole, Addis Ababa",
+      "size": "200 sq meters",
+      "owner": "Abebe Kebede",
+      "boundaries": {
+        "north": "Road",
+        "south": "PAR-2024-002",
+        "east": "Green Area",
+        "west": "Road"
+      }
+    },
+    {
+      "id": "PAR002",
+      "date": "2024-01-16",
+      "reference": "PAR-2024-002",
+      "type": "Commercial",
+      "details": "Commercial Plot in Piassa",
+      "status": "Active",
+      "location": "Piassa, Addis Ababa",
+      "size": "500 sq meters",
+      "owner": "Kebede Alemu",
+      "boundaries": {
+        "north": "PAR-2024-001",
+        "south": "Road",
+        "east": "PAR-2024-003",
+        "west": "Road"
+      }
+    },
+    {
+      "id": "PAR003",
+      "date": "2024-01-17",
+      "reference": "PAR-2024-003",
+      "type": "Agricultural",
+      "details": "Agricultural Land in Sululta",
+      "status": "Under Review",
+      "location": "Sululta",
+      "size": "1000 sq meters",
+      "owner": "Almaz Tadesse",
+      "boundaries": {
+        "north": "River",
+        "south": "Road",
+        "east": "Forest",
+        "west": "PAR-2024-002"
+      }
+    }
+  ]
+} 
