@@ -39,7 +39,8 @@ export const login = async (req, res) => {
 // Format user response
 const formatUserResponse = (user) => ({
   id: user._id.toString(),
-  username: user.username,
+  firstName: user.firstName,
+  lastName: user.lastName,
   email: user.email,
   role: user.role,
   phone: user.phone,
@@ -70,7 +71,8 @@ export const getAllUsers = async (req, res) => {
 
     const formattedUsers = users.map(user => ({
       id: user._id.toString(),
-      username: user.username,
+      firstName: user.firstName,
+      lastName: user.lastName,
       email: user.email,
       role: user.role,
       phone: user.phone || '',
@@ -122,7 +124,7 @@ export const getUserById = async (req, res) => {
  */
 export const createUser = async (req, res) => {
   try {
-    const { firstName, lastName, email, phone, role, status, password } = req.body;
+    const { firstName, lastName, email, phone, role, isActive, password } = req.body;
 
     // Validate required fields
     if (!firstName || !lastName || !email || !password || !role) {
@@ -133,7 +135,7 @@ export const createUser = async (req, res) => {
     }
 
     // Check if user already exists
-    const existingUser = await User.findOne({ $or: [{ email }, { username }] });
+    const existingUser = await User.findOne({ $or: [{ email }] });
     if (existingUser) {
       return res.status(400).json({
         success: false,
@@ -176,7 +178,7 @@ export const createUser = async (req, res) => {
  */
 export const updateUser = async (req, res) => {
   try {
-    const { username, email, password, role, phone } = req.body;
+    const { firstName, lastName, email, password, role, phone, isActive } = req.body;
     const userId = req.params.id;
 
     const user = await User.findById(userId);
@@ -191,7 +193,7 @@ export const updateUser = async (req, res) => {
     const existingUser = await User.findOne({
       $and: [
         { _id: { $ne: userId } },
-        { $or: [{ email }, { username }] }
+        { email }
       ]
     });
 
@@ -203,10 +205,12 @@ export const updateUser = async (req, res) => {
     }
 
     // Update user fields
-    user.username = username || user.username;
+    user.firstName = firstName || user.firstName;
+    user.lastName = lastName || user.lastName;
     user.email = email || user.email;
     user.role = role || user.role;
     user.phone = phone || user.phone;
+    user.isActive = isActive !== undefined ? isActive : user.isActive; // Allow toggling isActive
 
     // Update password if provided
     if (password) {

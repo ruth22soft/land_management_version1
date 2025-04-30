@@ -54,7 +54,7 @@ const ManageUsers = () => {
     email: '',
     phone: '',
     role: '',
-    status: '',
+    isActive: '',
     password: ''
   });
 
@@ -90,6 +90,11 @@ const ManageUsers = () => {
     fetchUsers();
   }, []);
 
+  // Add this useEffect to monitor the `users` state
+  useEffect(() => {
+    console.log('Users state:', users); // Log the users array
+  }, [users]);
+
   const handleOpenDialog = (type, user = null) => {
     setDialogType(type);
     setSelectedUser(user);
@@ -100,7 +105,7 @@ const ManageUsers = () => {
         email: user.email,
         phone: user.phone,
         role: user.role,
-        status: user.status,
+        isActive: user.isActive,
         password: user.password || '' // Ensure password is empty if not provided
       });
     } else {
@@ -110,7 +115,7 @@ const ManageUsers = () => {
         email: '',
         phone: '',
         role: '',
-        status: '',
+        isActive: '',
         password: ''
       });
     }
