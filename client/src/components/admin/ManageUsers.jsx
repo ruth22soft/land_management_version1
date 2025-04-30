@@ -1,4 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios'; // Import Axios for API calls
+const API_BASE_URL = 'http://localhost:5000/api/users'; // Replace with your backend URL
+
 import {
   Box,
   Paper,
@@ -37,27 +40,9 @@ import {
 } from '@mui/icons-material';
 
 const ManageUsers = () => {
-  const [users, setUsers] = useState([
-    {
-      id: 1,
-      firstName: 'System',
-      lastName: 'Administrator',
-      email: 'admin@lrms.gov.et',
-      phone: '+251911000000',
-      role: 'admin',
-      status: 'active'
-    },
-    {
-      id: 2,
-      firstName: 'Registration',
-      lastName: 'Officer',
-      email: 'registration@lrms.gov.et',
-      phone: '+251922000000',
-      role: 'registration',
-      status: 'active'
-    }
-  ]);
-
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState(0);
   const [openDialog, setOpenDialog] = useState(false);
   const [dialogType, setDialogType] = useState('');
@@ -69,8 +54,41 @@ const ManageUsers = () => {
     email: '',
     phone: '',
     role: '',
+    status: '',
     password: ''
   });
+
+   // Fetch users from the backend
+   const fetchUsers = async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('token'); // Retrieve token from localStorage
+      if (!token) {
+        setError('You are not authorized. Please log in.');
+        return;
+      }
+      const response = await axios.get(API_BASE_URL, {
+          headers: {
+            Authorization: `Bearer ${token}` // Include token in the request headers
+          }
+        }
+      );
+      console.log('Fetched users:', response.data); // Log the fetched users
+      // setUsers(response.data);
+      //setUsers(Array.isArray(response.data) ? response.data : []); // Ensure users is always an array
+      setUsers(Array.isArray(response.data.data) ? response.data.data : []); // Use response.data.data
+
+    } catch (err) {
+      console.error('Error fetching users:', err.response || err.message); // Log the error
+      setError('Failed to fetch users. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
 
   const handleOpenDialog = (type, user = null) => {
     setDialogType(type);
@@ -82,7 +100,8 @@ const ManageUsers = () => {
         email: user.email,
         phone: user.phone,
         role: user.role,
-        password: ''
+        status: user.status,
+        password: user.password || '' // Ensure password is empty if not provided
       });
     } else {
       setFormData({
@@ -91,27 +110,53 @@ const ManageUsers = () => {
         email: '',
         phone: '',
         role: '',
+        status: '',
         password: ''
       });
     }
     setOpenDialog(true);
   };
 
-  const handleSubmit = () => {
-    if (dialogType === 'add') {
-      setUsers([...users, { ...formData, id: users.length + 1, status: 'active' }]);
-    } else if (dialogType === 'edit') {
-      setUsers(users.map(user => 
-        user.id === selectedUser.id ? { ...user, ...formData } : user
-      ));
+  const handleSubmit = async () => {
+    try {
+      const token = localStorage.getItem('token'); // Retrieve token from localStorage
+      if (dialogType === 'add') {
+        await axios.post(API_BASE_URL, formData, {
+          headers: {
+            Authorization: `Bearer ${token}` // Include token in the request headers
+          }
+        });
+      } else if (dialogType === 'edit') {
+        await axios.put(`${API_BASE_URL}/${selectedUser.id}`, formData, {
+          headers: {
+            Authorization: `Bearer ${token}` // Include token in the request headers
+          }
+        });
+      }
+      fetchUsers(); // Refresh the user list
+      setOpenDialog(false);
+    } catch (err) {
+      setError('Failed to save user. Please try again.');
     }
-    setOpenDialog(false);
   };
+  const handleDelete = async (userId) => {
+    try {
+      await axios.delete(`${API_BASE_URL}/${userId}`,{
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}` // Include token in the request headers
+        }
+      });
+      fetchUsers(); // Refresh the user list
+    } catch (err) {
+      setError('Failed to delete user. Please try again.');
+    }
+  };
+
 
   const filteredUsers = users.filter(user => {
     return activeTab === 0 ? user.role === 'registration' : user.role === 'admin';
   });
-
+  console.log('Filtered users:', filteredUsers); // Log the filtered users
   return (
     <Box>
       <Typography variant="h4" gutterBottom>
@@ -164,9 +209,9 @@ const ManageUsers = () => {
                 </TableCell>
                 <TableCell>
                   <Chip 
-                    label={user.status.toUpperCase()}
-                    color={user.status === 'active' ? 'success' : 'warning'}
-                    size="small"
+                   label={user.isActive ? 'Active' : 'Inactive'} // Use isActive
+                   color={user.isActive ? 'success' : 'warning'}
+                   size="small"
                   />
                 </TableCell>
                 <TableCell>
@@ -178,6 +223,11 @@ const ManageUsers = () => {
                   <Tooltip title="Reset Password">
                     <IconButton onClick={() => handleOpenDialog('reset', user)}>
                       <LockIcon />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="Delete User">
+                    <IconButton onClick={() => handleDelete(user.id)}>
+                      <DeleteIcon />
                     </IconButton>
                   </Tooltip>
                 </TableCell>
@@ -193,6 +243,12 @@ const ManageUsers = () => {
            dialogType === 'edit' ? 'Edit User' : 
            'Reset Password'}
         </DialogTitle>
+
+      <Button variant="contained" onClick={handleSubmit}>
+        {dialogType === 'add' ? 'Add User' : 
+        dialogType === 'edit' ? 'Save Changes' : 
+        'Reset Password'}
+      </Button>
         <DialogContent>
           <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
             {dialogType !== 'reset' && (

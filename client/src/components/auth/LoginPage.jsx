@@ -50,7 +50,7 @@ const LoginPage = ({ userType }) => {
       setError('');
 
       try {
-        const user = await login(values.email, values.password);
+        const user = await login(values.email, values.password, userType);
         
         if (user.role !== userType) {
           throw new Error(`Invalid login type. Please use the ${userType} login page.`);
@@ -58,7 +58,9 @@ const LoginPage = ({ userType }) => {
 
         navigate(from, { replace: true });
       } catch (err) {
-        setError(err.message || 'Failed to login. Please check your credentials.');
+        const backendMessage = err.response?.data?.message;
+        setError(backendMessage || err.message || 'Failed to login. Please check your credentials.');      
+
       } finally {
         setLoading(false);
       }

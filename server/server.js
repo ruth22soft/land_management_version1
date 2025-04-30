@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import config from './config/config.js';
 
 // Get directory path for ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -11,10 +12,11 @@ const __dirname = path.dirname(__filename);
 
 // Import routes with correct paths
 import authRoutes from './routes/auth.routes.js';
-import adminRoutes from './routes/admin.routes.js';
+import userRoutes from './routes/user.routes.js';
+import dashboardRoutes from './routes/dashboard.routes.js';
 import certificateRoutes from './routes/certificate.routes.js';
 import parcelRoutes from './routes/parcel.routes.js';
-import ownerRoutes from './routes/owner.routes.js';
+import reportRoutes from './routes/report.routes.js';
 
 // Load environment variables with explicit path
 dotenv.config({ path: path.resolve(__dirname, '.env') });
@@ -22,17 +24,26 @@ dotenv.config({ path: path.resolve(__dirname, '.env') });
 /** @type {express.Express} */
 const app = express();
 
+// CORS configuration
+app.use(cors({
+  origin: config.corsOrigin,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 // Middleware
-app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use('/uploads', express.static('uploads'));
 
 // Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/admin', adminRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/certificates', certificateRoutes);
 app.use('/api/parcels', parcelRoutes);
-app.use('/api/owners', ownerRoutes);
+app.use('/api/reports', reportRoutes);
 
 // Test route
 /** @type {express.RequestHandler} */
@@ -43,7 +54,7 @@ const testHandler = (req, res) => {
   });
 };
 
-app.get('/test', testHandler);
+app.get('/api/test', testHandler);
 
 /**
  * Connects to MongoDB and starts the server
@@ -51,14 +62,9 @@ app.get('/test', testHandler);
  */
 const connectDB = async () => {
   try {
-    // Check if MongoDB URI is defined
-    if (!process.env.MONGODB_URI) {
-      throw new Error('MONGODB_URI environment variable is not defined');
-    }
-    
     console.log('Attempting to connect to MongoDB...');
     
-    await mongoose.connect(/** @type {string} */ (process.env.MONGODB_URI), {
+    await mongoose.connect(config.mongoUri, {
       maxPoolSize: 10,
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
@@ -78,24 +84,29 @@ const connectDB = async () => {
     });
 
     // Start server only after successful database connection
-    const PORT = process.env.PORT || 5000;
-    app.listen(PORT, () => {
-      console.log(`✅ Server is running on port ${PORT}`);
+    app.listen(config.port, () => {
+      console.log(`✅ Server is running on port ${config.port}`);
+      console.log(`✅ CORS enabled for: ${config.corsOrigin}`);
     });
 
   } catch (err) {
     console.error('❌ MongoDB Connection Error:', err instanceof Error ? err.message : String(err));
     console.error('❌ Make sure MongoDB is running on your system');
     console.error('❌ Server will not start due to database connection failure');
-    process.exit(1); // Exit the process with error code
+    process.exit(1);
   }
 };
 
-// Call connectDB with proper error handling
-void connectDB().catch((err) => {
-  console.error('Failed to connect:', err);
-  process.exit(1);
+// Handle 404 routes
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: 'Route not found'
+  });
 });
+
+// Start the server
+connectDB().catch(console.error);
 
 // Error handling middleware
 /** @type {express.ErrorRequestHandler} */

@@ -1,22 +1,34 @@
+// @ts-nocheck
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import User from '../models/user.model.js';
+import config from '../config/config.js';
+
+/**
+ * Helper function to format user response
+ * @param {import('../models/user.model.js').IUser} user
+ * @returns {Object}
+ */
+const formatUserResponse = (user) => ({
+  id: user._id.toString(),
+  username: user.username,
+  email: user.email,
+  role: user.role,
+});
 
 /**
  * Register a new user
- * @param {import('express').Request} req
- * @param {import('express').Response} res
  */
 export const register = async (req, res) => {
   try {
-    const { username, email, password, role } = req.body;
+    const { username, email, password, role = 'user' } = req.body;
 
     // Check if user already exists
     const existingUser = await User.findOne({ $or: [{ email }, { username }] });
     if (existingUser) {
       return res.status(400).json({
         success: false,
-        message: 'User already exists with this email or username'
+        message: 'User with this email or username already exists',
       });
     }
 
@@ -29,86 +41,127 @@ export const register = async (req, res) => {
       username,
       email,
       password: hashedPassword,
-      role: role || 'user'
+      role,
     });
 
-    await user.save();
+    const savedUser = await user.save();
+    const token = jwt.sign(
+      { 
+        id: savedUser._id,
+        role: savedUser.role,
+        email: savedUser.email
+      },
+      config.jwtSecret,
+      { expiresIn: '24h' }
+    );
 
     res.status(201).json({
       success: true,
-      message: 'User registered successfully'
+      data: {
+        token,
+        user: formatUserResponse(savedUser),
+      },
     });
   } catch (error) {
     res.status(500).json({
       success: false,
       message: 'Error registering user',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error.message,
     });
   }
 };
 
 /**
  * Login user
- * @param {import('express').Request} req
- * @param {import('express').Response} res
  */
 export const login = async (req, res) => {
-  try {
-    const { email, password } = req.body;
+  const { email, password } = req.body;
 
-    // Find user
+  try {
+    console.log('Login attempt for email:', email);
+    
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(400).json({
+      console.log('User not found:', email);
+      return res.status(404).json({ 
         success: false,
-        message: 'Invalid credentials'
+        message: 'This user was not found.' 
       });
     }
 
-    // Check password
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(400).json({
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      console.log('Invalid password for user:', email);
+      return res.status(401).json({ 
         success: false,
-        message: 'Invalid credentials'
+        message: 'Invalid email or password.' 
       });
     }
 
-    // Check if user is active
-    if (!user.isActive) {
-      return res.status(403).json({
-        success: false,
-        message: 'Account is deactivated'
-      });
-    }
+    console.log('User authenticated successfully:', email);
+    console.log('Using JWT secret:', config.jwtSecret);
 
-    // Check if JWT secret is configured
-    if (!process.env.JWT_SECRET) {
-      throw new Error('JWT_SECRET is not configured in environment variables');
-    }
-
-    // Generate JWT token
+    // Generate JWT token with correct payload
     const token = jwt.sign(
-      { id: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: '1d' }
+      { 
+        id: user._id.toString(), // Ensure id is a string
+        role: user.role,
+        email: user.email
+      },
+      config.jwtSecret,
+      { expiresIn: '24h' }
     );
+
+    console.log('Token generated successfully');
+
+    // Send user data without password
+    const userData = {
+      id: user._id.toString(),
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      isActive: user.isActive
+    };
+
+    console.log('Sending response with user data:', userData);
+
+    res.status(200).json({
+      success: true,
+      user: userData,
+      token
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Error logging in',
+      error: error.message 
+    });
+  }
+};
+
+/**
+ * Get current user
+ */
+export const getCurrentUser = async (req, res) => {
+  try {
+    const user = req.user;
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
+    }
 
     res.json({
       success: true,
-      token,
-      user: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        role: user.role
-      }
+      data: {
+        user: formatUserResponse(user),
+      },
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: 'Error logging in',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      message: 'Error fetching user data',
+      error: error.message,
     });
   }
 };

@@ -11,7 +11,7 @@ import {
   Snackbar
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { ownerService } from '../services/ownerService';
+//import { ownerService } from '../services/ownerService';
 
 const OwnerRegistration = () => {
   const navigate = useNavigate();

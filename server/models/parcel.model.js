@@ -1,124 +1,69 @@
-import mongoose from 'mongoose';
+// models/Parcel.js
 
-/**
- * @typedef {Object} IParcelLocation
- * @property {string} region
- * @property {string} zone
- * @property {string} woreda
- * @property {string} kebele
- * @property {[number, number]} coordinates
- */
+import mongoose from "mongoose";
 
 /**
  * @typedef {Object} IParcel
  * @property {string} parcelNumber
- * @property {IParcelLocation} location
- * @property {number} area
- * @property {('residential'|'agricultural'|'commercial'|'industrial'|'other')} landUse
- * @property {mongoose.Types.ObjectId} owner - Reference to Owner model
- * @property {mongoose.Types.ObjectId} userId - Reference to User model
- * @property {('pending'|'approved'|'rejected')} status
- * @property {string[]} documents
+ * @property {string} location
+ * @property {string} region
+ * @property {string} zone
+ * @property {string} woreda
+ * @property {string} kebele
+ * @property {string} block
+ * @property {number} size
+ * @property {string} sizeUnit
+ * @property {string} ownerName
+ * @property {string} nationalId
+ * @property {string} landUseType
+ * @property {string} certificateNumber
+ * @property {Object} landLocation
+ * @property {string} landLocation.region
+ * @property {string} landLocation.zone
+ * @property {string} landLocation.woreda
+ * @property {string} landLocation.kebele
+ * @property {string} landLocation.block
  * @property {Date} createdAt
  * @property {Date} updatedAt
  */
 
-/**
- * @type {mongoose.Schema<IParcel>}
- */
-const parcelSchema = new mongoose.Schema({
-  parcelNumber: {
-    type: String,
-    required: true,
-    unique: true,
-    trim: true
-  },
-  location: {
-    region: {
-      type: String,
-      required: true,
-      trim: true
-    },
-    zone: {
-      type: String,
-      required: true,
-      trim: true
-    },
-    woreda: {
-      type: String,
-      required: true,
-      trim: true
-    },
-    kebele: {
-      type: String,
-      required: true,
-      trim: true
-    },
-    coordinates: {
-      type: [Number],
-      required: true,
-      validate: {
-        /** 
-         * Validates coordinates
-         * @param {number[]} v - Array of coordinates
-         * @returns {boolean} - True if coordinates are valid
-         */
-        validator: function(v) {
-          return v.length === 2 && 
-                 v[0] >= -180 && v[0] <= 180 && 
-                 v[1] >= -90 && v[1] <= 90;
-        },
-        message: 'Coordinates must be valid [longitude, latitude] pairs'
-      }
-    }
-  },
-  area: {
-    type: Number,
-    required: true,
-    min: 0
-  },
-  landUse: {
-    type: String,
-    required: true,
-    enum: ['residential', 'agricultural', 'commercial', 'industrial', 'other']
-  },
-  owner: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Owner',
-    required: true
-  },
-  userId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  },
-  status: {
-    type: String,
-    enum: ['pending', 'approved', 'rejected'],
-    default: 'pending'
-  },
-  documents: [{
-    type: String,
-    trim: true
-  }]
-}, {
-  timestamps: true
-});
+const landLocationSchema = new mongoose.Schema({
+  region: { type: String, required: true },
+  zone: { type: String, required: true },
+  woreda: { type: String, required: true },
+  kebele: { type: String, required: true },
+  block: { type: String }
+}, { _id: false });
 
-// Add indexes for better search performance
-parcelSchema.index({ parcelNumber: 1 });
-parcelSchema.index({ 
-  'location.region': 1,
-  'location.zone': 1,
-  'location.woreda': 1,
-  'location.kebele': 1
-});
-parcelSchema.index({ owner: 1, userId: 1 });
+const parcelSchema = new mongoose.Schema(
+  {
+    parcelNumber: { type: String, required: true, unique: true },
+    // Combined location string (for backward compatibility)
+    location: { type: String, required: true },
+    // Individual location fields
+    region: { type: String, required: true },
+    zone: { type: String, required: true },
+    woreda: { type: String, required: true },
+    kebele: { type: String, required: true },
+    block: { type: String },
+    // Nested location object
+    landLocation: { type: landLocationSchema, required: true },
+    // Other fields
+    size: { type: Number, required: true },
+    sizeUnit: { type: String, default: 'square meters' },
+    ownerName: { type: String, required: true },
+    nationalId: { type: String },
+    landUseType: { type: String, required: true },
+    certificateNumber: { type: String, required: true },
+    // Add reference to certificate
+    certificate: { type: mongoose.Schema.Types.ObjectId, ref: 'Certificate' }
+  },
+  { timestamps: true }
+);
 
-/**
- * Parcel Model
- * @type {mongoose.Model<IParcel, {}, {}, {}, mongoose.Document<unknown, {}, IParcel> & IParcel>}
- */
-const Parcel = mongoose.model('Parcel', parcelSchema);
+// Add index for certificate number for faster lookups
+parcelSchema.index({ certificateNumber: 1 });
 
-export default Parcel;
+const Parcel = mongoose.model("Parcel", parcelSchema);
+
+export default Parcel; // Default export
