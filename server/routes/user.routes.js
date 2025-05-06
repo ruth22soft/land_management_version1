@@ -33,7 +33,7 @@ router.put('/:id', updateUser);
 router.delete('/:id', deleteUser);
 
 //reset password
-router.post('/:id/reset-password', resetPassword);
+router.post('/reset-password', resetPassword);
 
 // Toggle user status
 router.patch('/:id/status', toggleUserStatus);

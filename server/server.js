@@ -45,6 +45,8 @@ app.use('/api/certificates', certificateRoutes);
 app.use('/api/parcels', parcelRoutes);
 app.use('/api/reports', reportRoutes);
 
+console.log('JWT_SECRET:', process.env.JWT_SECRET);
+console.log('Environment:', process.env.NODE_ENV);
 // Test route
 /** @type {express.RequestHandler} */
 const testHandler = (req, res) => {

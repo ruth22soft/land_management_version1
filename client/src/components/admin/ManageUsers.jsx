@@ -125,8 +125,14 @@ const ManageUsers = () => {
   const handleSubmit = async () => {
     try {
       const token = localStorage.getItem('token'); // Retrieve token from localStorage
+      console.log('Form data being sent', formData); // Log the form data
+
+      const updatedFormData = { 
+        ...formData,
+        isActive: formData.isActive === '' ? true : formData.isActive, // Ensure isActive is a boolean
+      };
       if (dialogType === 'add') {
-        await axios.post(API_BASE_URL, formData, {
+        await axios.post(API_BASE_URL, updatedFormData, {
           headers: {
             Authorization: `Bearer ${token}` // Include token in the request headers
           }
@@ -141,6 +147,7 @@ const ManageUsers = () => {
       fetchUsers(); // Refresh the user list
       setOpenDialog(false);
     } catch (err) {
+      console.error('Error saving user:', err.response || err.message); // Log the error
       setError('Failed to save user. Please try again.');
     }
   };

@@ -3,6 +3,8 @@ import mongoose from 'mongoose';
 import User from '../models/user.model.js';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+import config from '../config/config.js';
+
 
 const secretKey = process.env.JWT_SECRET || 'your_secret_key';
 
@@ -157,11 +159,12 @@ export const createUser = async (req, res) => {
       isActive,
       password: hashedPassword
     });
-
+    console.log('Hashed password during user creation:', hashedPassword);
     const savedUser = await user.save();
 
     res.status(201).json({
       success: true,
+      message: 'User created successfully',
       data: formatUserResponse(savedUser)
     });
   } catch (error) {
@@ -213,10 +216,10 @@ export const updateUser = async (req, res) => {
     user.isActive = isActive !== undefined ? isActive : user.isActive; // Allow toggling isActive
 
     // Update password if provided
-    if (password) {
-      const salt = await bcrypt.genSalt(10);
-      user.password = await bcrypt.hash(password, salt);
-    }
+    // if (password) {
+    //   const salt = await bcrypt.genSalt(10);
+    //   user.password = await bcrypt.hash(password, salt);
+    // }
 
     const updatedUser = await user.save();
 
@@ -293,8 +296,21 @@ export const toggleUserStatus = async (req, res) => {
 };
 export const resetPassword = async (req, res) => {
   const { email, newPassword } = req.body;
-
+  
   try {
+    // Check for token in the Authorization header
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ success: false, message: 'Access denied. No token provided.' });
+    }
+
+    
+    // Verify the token
+    const decoded = jwt.verify(token, config.jwtSecret);
+    if (!decoded) {
+      return res.status(401).json({ success: false, message: 'Invalid token.' });
+    }
+
     if (!email) {
       return res.status(400).json({ success: false, message: 'Email address is required' });
     }
@@ -315,9 +331,11 @@ export const resetPassword = async (req, res) => {
     await user.save();
 
     res.status(200).json({ success: true, message: 'Password reset successfully' });
+    console.log('Hashed password during password reset:', hashedPassword);
   }
   catch (error) {
     console.error('Error in resetPassword:', error);
     res.status(500).json({ success: false, message: 'Error resetting password', error: error.message });
   }
 };
+
