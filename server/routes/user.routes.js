@@ -20,6 +20,9 @@ router.use(authenticate, authorize(['admin']));
 // Get all users
 router.get('/', getAllUsers);
 
+//reset password
+router.put('/reset-password', resetPassword);
+
 // Get user by ID
 router.get('/:id', getUserById);
 
@@ -32,8 +35,6 @@ router.put('/:id', updateUser);
 // Delete user
 router.delete('/:id', deleteUser);
 
-//reset password
-router.post('/reset-password', resetPassword);
 
 // Toggle user status
 router.patch('/:id/status', toggleUserStatus);

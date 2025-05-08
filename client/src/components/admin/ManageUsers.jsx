@@ -143,7 +143,22 @@ const ManageUsers = () => {
             Authorization: `Bearer ${token}` // Include token in the request headers
           }
         });
+      } else if (dialogType === 'reset') {
+        // Reset user password
+        if (!formData.password) {
+          setError('Password is required for resetting.');
+          return;
+        }
+        await axios.put(`${API_BASE_URL}/reset-password`, {
+          email: selectedUser.email, // Use the selected user's email
+          newPassword: formData.password, // New password from the form
+        }, {
+          headers: {
+            Authorization: `Bearer ${token}` // Include token in the request headers
+          }
+        });
       }
+  
       fetchUsers(); // Refresh the user list
       setOpenDialog(false);
     } catch (err) {

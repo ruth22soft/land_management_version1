@@ -60,11 +60,11 @@ const userSchema = new mongoose.Schema({
 // Add indexes for better search performance
 // userSchema.index({ username: 1, email: 1, role: 1 });
 // Hash the password before saving
-userSchema.pre('save', async function (next) {
-  if (!this.isModified('password')) return next();
-  this.password = await bcrypt.hash(this.password, 10);
-  next();
-});
+// userSchema.pre('save', async function (next) {
+//   if (!this.isModified('password')) return next();
+//   this.password = await bcrypt.hash(this.password, 10);
+//   next();
+// });
 
 /** @type {mongoose.Model<IUser>} */
 const User = mongoose.model('User', userSchema);

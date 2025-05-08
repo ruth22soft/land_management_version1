@@ -137,7 +137,9 @@ export const createUser = async (req, res) => {
     }
 
     // Check if user already exists
-    const existingUser = await User.findOne({ $or: [{ email }] });
+    //const existingUser = await User.findOne({ $or: [{ email }] });
+    const existingUser = await User.findOne({ email });
+
     if (existingUser) {
       return res.status(400).json({
         success: false,
@@ -157,7 +159,7 @@ export const createUser = async (req, res) => {
       phone,
       role,
       isActive,
-      password: hashedPassword
+      password: hashedPassword,
     });
     console.log('Hashed password during user creation:', hashedPassword);
     const savedUser = await user.save();
@@ -303,8 +305,6 @@ export const resetPassword = async (req, res) => {
     if (!token) {
       return res.status(401).json({ success: false, message: 'Access denied. No token provided.' });
     }
-
-    
     // Verify the token
     const decoded = jwt.verify(token, config.jwtSecret);
     if (!decoded) {
@@ -327,7 +327,7 @@ export const resetPassword = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
 
-    user.password = hashedPassword;
+     user.password = hashedPassword;
     await user.save();
 
     res.status(200).json({ success: true, message: 'Password reset successfully' });
