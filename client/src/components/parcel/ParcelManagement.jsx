@@ -523,6 +523,16 @@ import { Link } from 'react-router-dom';
 import CertificateGenerator from '../certification/CertificateGenerator';
 import axios from 'axios'; // Import axios
 
+const LEGAL_RIGHTS = {
+  en: 'This certificate grants the registered owner the following rights...',
+  am: 'ይህ የምስክር ወረቀት ለተመዘገበው ባለቤት የሚከተሉትን መብቶች ይሰጣል...'
+};
+
+const TERMS_AND_CONDITIONS = {
+  en: 'The owner must comply with all local zoning regulations...',
+  am: 'ባለቤቱ ከሁሉም የአካባቢ ዞን ደንቦች ጋር መስማማት አለበት...'
+};
+
 const ParcelManagement = () => {
   const [parcels, setParcels] = useState([]);
   const [page, setPage] = useState(0);
@@ -602,8 +612,8 @@ const ParcelManagement = () => {
       sizeUnit: 'square meters',
       landUseType: parcel.landUseType,
       boundaries: parcel.boundaries,
-      legalRights: parcel.legalRights,
-      termsAndConditions: parcel.termsAndConditions,
+      // legalRights: LEGAL_RIGHTS,
+      // termsAndConditions: TERMS_AND_CONDITIONS,
       issuingAuthority: parcel.issuingAuthority,
       issuingAuthorityAm: parcel.issuingAuthorityAm,
       dateOfIssuance: parcel.dateOfIssuance || new Date().toISOString().split('T')[0],
@@ -765,6 +775,44 @@ const ParcelManagement = () => {
   };
 
   const handleViewCertificate = (parcel) => {
+
+    // Generate certificate number if not exists
+  const certificateNumber = parcel.certificateNumber || `LRMS-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
+    
+    // Prepare complete certificate data with proper image handling
+    const certificateData = {
+      certificateNumber,
+      ownerName: parcel.ownerName,
+      nationalId: parcel.nationalId || 'N/A',
+      landLocation: {
+        region: parcel.landLocation?.regionEn || 'N/A', // Use English region
+        zone: parcel.landLocation?.zoneEn || 'N/A', // Use English zone
+        woreda: parcel.landLocation?.woredaEn || 'N/A', // Use English woreda
+        kebele: parcel.landLocation?.kebeleEn || 'N/A', // Use English kebele
+        block: parcel.landLocation?.blockEn || 'N/A' // Use English block
+      },
+      landSize: parcel.landSize,
+      sizeUnit: 'square meters',
+      landUseType: parcel.landUseType,
+      boundaries: parcel.boundaries,
+      issuingAuthority: parcel.issuingAuthority,
+      issuingAuthorityAm: parcel.issuingAuthorityAm,
+      dateOfIssuance: parcel.dateOfIssuance || new Date().toISOString().split('T')[0],
+      // Add image properties
+      ownerPhoto: parcel.ownerPhoto,
+      officerSignature: parcel.officerSignature,
+      logo: parcel.logo
+    };
+
+    // Update parcel with certificate number if needed
+    if (!parcel.certificateNumber) {
+      const updatedParcels = parcels.map(p => 
+        p.id === parcel.id ? { ...p, certificateNumber } : p
+      );
+      setParcels(updatedParcels);
+    }
+
+
     setSelectedCertificateParcel(parcel);
     setShowCertificate(true);
   };
@@ -800,7 +848,7 @@ const ParcelManagement = () => {
               <TableCell>Size (m²)</TableCell>
               <TableCell>Owner Name</TableCell>
               <TableCell>Land Use Type</TableCell>
-              <TableCell>Certificate Number</TableCell>
+              <TableCell>Status</TableCell>
               <TableCell>Actions</TableCell>
             </TableRow>
           </TableHead>
@@ -814,7 +862,7 @@ const ParcelManagement = () => {
                   <TableCell>{parcel.landSize}</TableCell>
                   <TableCell>{parcel.ownerName}</TableCell>
                   <TableCell>{parcel.landUseType}</TableCell>
-                  <TableCell>{parcel.certificateNumber || 'N/A'}</TableCell>
+                  <TableCell>{parcel.status || 'Pending'}</TableCell>
                   <TableCell>
                     <IconButton
                       color="primary"
@@ -828,12 +876,12 @@ const ParcelManagement = () => {
                     >
                       <DeleteIcon />
                     </IconButton>
-                    <IconButton
+                    {/* <IconButton
                       color="info"
                       onClick={() => handleViewCertificate(parcel)}
                     >
                       <AssignmentIcon />
-                    </IconButton>
+                    </IconButton> */}
                     <IconButton
                       color="success"
                       onClick={() => handleGenerateCertificate(parcel)}

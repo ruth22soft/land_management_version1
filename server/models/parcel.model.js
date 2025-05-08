@@ -74,8 +74,8 @@ const parcelSchema = new mongoose.Schema(
     isActive: { type: Boolean, default: true },
     status: {
       type: String,
-      enum: ["pending", "approved", "rejected"],
-      default: "pending", // Default status is "pending"
+      enum: ["Pending", "Approved", "Rejected"],
+      default: "Pending", // Default status is "pending"
     },
     history: [
       {

@@ -422,9 +422,18 @@ export const CertificateDocument = ({ certificateData, processImage, handleOwner
 
                             {/* Legal Rights & Terms */}
                             <View style={styles.infoSection}>
-                                <Text style={styles.sectionTitle}>Legal Rights & Terms</Text>
+                                <Text style={styles.sectionTitle}>Legal Rights and Terms</Text>
                                 <Text style={styles.value}>{certificateData?.legalRights?.en}</Text>
+                                {/* <Text style={styles.sectionTitle}>Legal Rights(Amharic)</Text>
+                                <Text style={styles.value}>{certificateData?.legalRights?.am}</Text> */}
                             </View>
+                            {/* Terms
+                            <View style={styles.infoSection}>
+                                <Text style={styles.sectionTitle}>Terms and Conditions (English)</Text>
+                                <Text style={styles.value}>{certificateData?.termsAndConditions?.en}</Text>
+                                <Text style={styles.sectionTitle}>Terms and Conditions(Amharic)</Text>
+                                <Text style={styles.value}>{certificateData?.termsAndConditions?.am}</Text>
+                            </View> */}
 
                             {/* Certificate Validity */}
                             <View style={styles.infoSection}>
