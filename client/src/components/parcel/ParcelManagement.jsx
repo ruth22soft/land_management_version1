@@ -540,7 +540,8 @@ const ParcelManagement = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedParcel, setSelectedParcel] = useState(null);
   const [formData, setFormData] = useState({
-    ownerName: '',
+    ownerNameAm: { firstName: '', lastName: '' },
+    ownerNameEn: { firstName: '', lastName: '' },
     nationalId: '',
     landLocation: {
       regionAm: '',
@@ -593,13 +594,16 @@ const ParcelManagement = () => {
   }, []);
 
   const handleGenerateCertificate = (parcel) => {
+    console.log('Parcel Data:', parcel); // Debugging log
+
     // Generate certificate number if not exists
     const certificateNumber = parcel.certificateNumber || `LRMS-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
     
     // Prepare complete certificate data with proper image handling
     const certificateData = {
       certificateNumber,
-      ownerName: parcel.ownerName,
+      // ownerNameAm: `${parcel.ownerNameAm?.firstName || ''} ${parcel.ownerNameAm?.lastName || ''}`.trim(),
+      ownerNameEn: `${parcel.ownerNameEn?.firstName || ''} ${parcel.ownerNameEn?.lastName || ''}`.trim(),
       nationalId: parcel.nationalId || 'N/A',
       landLocation: {
         region: parcel.landLocation?.regionEn || 'N/A', // Use English region
@@ -622,6 +626,8 @@ const ParcelManagement = () => {
       officerSignature: parcel.officerSignature,
       logo: parcel.logo
     };
+    console.log('Generated Certificate Data:', certificateData); // Debugging log
+
 
     // Update parcel with certificate number if needed
     if (!parcel.certificateNumber) {
@@ -656,7 +662,8 @@ const ParcelManagement = () => {
     } else {
       setSelectedParcel(null);
       setFormData({
-        ownerName: '',
+        ownerNameAm: { firstName: '', lastName: '' },
+        ownerNameEn: { firstName: '', lastName: '' },
         nationalId: '',
         landLocation: {
           regionAm: '',
@@ -690,7 +697,17 @@ const ParcelManagement = () => {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
 
-    if (name.startsWith('landLocation.')) {
+    if (name.startsWith('ownerNameAm.') || name.startsWith('ownerNameEn.')) {
+      const [field, subField] = name.split('.');
+      setFormData((prev) => ({
+        ...prev,
+        [field]: {
+          ...prev[field],
+          [subField]: value,
+        },
+      }));
+
+    } else if (name.startsWith('landLocation.')) {
       const locationField = name.split('.')[1];
       setFormData(prev => ({
         ...prev,
@@ -782,7 +799,8 @@ const ParcelManagement = () => {
     // Prepare complete certificate data with proper image handling
     const certificateData = {
       certificateNumber,
-      ownerName: parcel.ownerName,
+      ownerNameAm: `${parcel.ownerNameAm?.firstName} ${parcel.ownerNameAm?.lastName}`, // Combine Amharic name
+      ownerNameEn: `${parcel.ownerNameEn?.firstName} ${parcel.ownerNameEn?.lastName}`, // Combine English name
       nationalId: parcel.nationalId || 'N/A',
       landLocation: {
         region: parcel.landLocation?.regionEn || 'N/A', // Use English region
@@ -860,7 +878,10 @@ const ParcelManagement = () => {
                   <TableCell>{parcel.parcelNumber}</TableCell>
                   <TableCell>{parcel.landLocation.regionEn}</TableCell>
                   <TableCell>{parcel.landSize}</TableCell>
-                  <TableCell>{parcel.ownerName}</TableCell>
+                  <TableCell>
+                     {/* Display owner's full name in English */}
+                    {`${parcel.ownerNameEn?.firstName || ''} ${parcel.ownerNameEn?.lastName || ''}`} 
+                  </TableCell>
                   <TableCell>{parcel.landUseType}</TableCell>
                   <TableCell>{parcel.status || 'Pending'}</TableCell>
                   <TableCell>
@@ -910,13 +931,36 @@ const ParcelManagement = () => {
         </DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
-            <TextField
-              name="ownerName"
-              label="Owner Name"
-              value={formData.ownerName}
-              onChange={handleInputChange}
-              fullWidth
-            />
+          <TextField
+            name="ownerNameAm.firstName"
+            label="First Name (Amharic)"
+            value={formData.ownerNameAm.firstName}
+            onChange={handleInputChange}
+            fullWidth
+          />
+          <TextField
+            name="ownerNameAm.lastName"
+            label="Last Name (Amharic)"
+            value={formData.ownerNameAm.lastName}
+            onChange={handleInputChange}
+            fullWidth
+          />
+
+          <Typography variant="subtitle1">Owner Name (English)</Typography>
+          <TextField
+            name="ownerNameEn.firstName"
+            label="First Name (English)"
+            value={formData.ownerNameEn.firstName}
+            onChange={handleInputChange}
+            fullWidth
+          />
+          <TextField
+            name="ownerNameEn.lastName"
+            label="Last Name (English)"
+            value={formData.ownerNameEn.lastName}
+            onChange={handleInputChange}
+            fullWidth
+          />
             <TextField
               name="nationalId"
               label="National ID"

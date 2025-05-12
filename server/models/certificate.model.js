@@ -1,57 +1,6 @@
 // @ts-nocheck
+
 import mongoose from "mongoose";
-
-/**
- * @typedef {Object} IChild
- * @property {string} firstNameAm
- * @property {string} firstNameEn
- * @property {number} age
- * @property {'male'|'female'} gender
- */
-
-/**
- * @typedef {Object} ICertificate
- * @property {string} firstNameAm
- * @property {string} firstNameEn
- * @property {string} lastNameAm
- * @property {string} lastNameEn
- * @property {Date} dateOfBirth
- * @property {string} nationalId
- * @property {string} phone
- * @property {string} addressAm
- * @property {string} addressEn
- * @property {string} fatherNameAm
- * @property {string} fatherNameEn
- * @property {string} motherNameAm
- * @property {string} motherNameEn
- * @property {string} maritalStatus
- * @property {IChild[]} children
- * @property {string} regionAm
- * @property {string} regionEn
- * @property {string} zoneAm
- * @property {string} zoneEn
- * @property {string} woredaAm
- * @property {string} woredaEn
- * @property {string} kebeleAm
- * @property {string} kebeleEn
- * @property {string} block
- * @property {string} landDescAm
- * @property {string} landDescEn
- * @property {number} landSize
- * @property {string} sizeUnit
- * @property {string} landUseType
- * @property {string} registrationNumber
- * @property {string} certificateNumber
- * @property {Date} issuanceDate
- * @property {string} issuingAuthorityAm
- * @property {string} issuingAuthorityEn
- * @property {Date} expiryDate
- * @property {string[]} documentPaths
- * @property {string} qrCode
- * @property {string} createdBy
- * @property {Date} createdAt
- * @property {Date} updatedAt
- */
 
 const childSchema = new mongoose.Schema({
   firstNameAm: String,
@@ -62,6 +11,11 @@ const childSchema = new mongoose.Schema({
 
 const certificateSchema = new mongoose.Schema(
   {
+    parcelId: { 
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: "Parcel", 
+      required: true 
+    }, // Reference to the Parcel model
     firstNameAm: String,
     firstNameEn: String,
     lastNameAm: String,
@@ -75,7 +29,10 @@ const certificateSchema = new mongoose.Schema(
     fatherNameEn: String,
     motherNameAm: String,
     motherNameEn: String,
-    maritalStatus: String,
+    maritalStatus: { 
+      type: String, 
+      enum: ["Single", "Married", "Divorced", "Widowed"] 
+    },
     children: [childSchema],
     regionAm: String,
     regionEn: String,
@@ -102,18 +59,28 @@ const certificateSchema = new mongoose.Schema(
       index: true,
       required: true,
       validate: {
-        validator: function(v) {
-          return /^CERT-\d{13}-\d{4}$/.test(v);
+        validator: function (v) {
+          return /^CERT-\d{13}-\d{4}$/.test(v); // Ensure the certificate number matches the expected format
         },
-        message: props => `${props.value} is not a valid certificate number format! Expected format: CERT-TIMESTAMP-XXXX`
-      }
+        message: (props) =>
+          `${props.value} is not a valid certificate number format! Expected format: CERT-TIMESTAMP-XXXX`,
+      },
     },
-    issuanceDate: Date,
+    issuanceDate: { type: Date, default: Date.now },
     issuingAuthorityAm: String,
     issuingAuthorityEn: String,
+
     expiryDate: Date,
     documentPaths: [String],
     qrCode: String,
+    ownerPhoto: String, // Path to the owner's photo
+    landPhoto: String,       // Path to the land photo
+    boundaryPhoto: String,   // Path to the boundary photo
+    landPlanPhoto: String, 
+    signatures: {
+      owner: String, // Path to the owner's signature
+      authority: String, // Path to the authority's signature
+    },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   },
   { timestamps: true }
@@ -121,4 +88,4 @@ const certificateSchema = new mongoose.Schema(
 
 const Certificate = mongoose.model("Certificate", certificateSchema);
 
-export default Certificate; // Default export
+export default Certificate;

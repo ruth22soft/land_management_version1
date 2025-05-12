@@ -62,11 +62,11 @@ const generateCertificateNumber = () => {
     return `LRMS-${year}-${random}`;
 };
 
-// const generateParcelId = () => {
-//     const year = new Date().getFullYear();
-//     const random = Math.floor(10000 + Math.random() * 90000);
-//     return `PARCEL-${year}-${random}`;
-// };
+const generateParcelId = () => {
+    const year = new Date().getFullYear();
+    const random = Math.floor(10000 + Math.random() * 90000);
+    return `PARCEL-${year}-${random}`;
+};
 
 // Default legal rights content
 const defaultLegalRights = {
@@ -164,9 +164,7 @@ const CertificationForm = () => {
     const [formData, setFormData] = useState({
         // Auto-generated Fields
         certificateNumber: generateCertificateNumber(),
-        registrationNumber: '', // This will be set after fetching parcel data
-        parcelId: '', // This will be set after fetching parcel data
-        parcelNumber: '',
+        parcelId: '',
         dateOfIssuance: formatDate(new Date()),
         
         // Owner Information

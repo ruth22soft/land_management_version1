@@ -293,13 +293,15 @@ export const CertificateDocument = ({ certificateData, processImage, handleOwner
 
     // Helper function to get owner's full name
     const getOwnerFullName = () => {
-        if (certificateData?.ownerName) {
-            return certificateData.ownerName;
-        } else if (certificateData?.ownerFirstName || certificateData?.ownerLastName) {
-            return `${certificateData?.ownerFirstName || ''} ${certificateData?.ownerLastName || ''}`.trim();
-        }
-        return 'N/A';
-    };
+        console.log('Certificate Data:', certificateData); // Debugging log
+
+        if (certificateData?.ownerNameEn) {
+            return certificateData.ownerNameEn; // Use the combined full name
+          } else if (certificateData?.ownerFirstName || certificateData?.ownerLastName) {
+            return `${certificateData.ownerFirstName || ''} ${certificateData.ownerLastName || ''}`.trim();
+          }
+          return 'N/A'; // Default to 'N/A' if no name is available
+        };
 
     React.useEffect(() => {
         const init = async () => {

@@ -6,10 +6,10 @@ import User from '../models/user.model.js';
 // Create a new parcel
 export const createParcel = async (req, res) => {
   try {
-    const { ownerName, nationalId, landLocation, landDescription, landSize, sizeUnit, landUseType } = req.body;
+    const {ownerNameAm, ownerNameEn, nationalId, landLocation, landDescription, landSize, sizeUnit, landUseType } = req.body;
 
     // Validate required fields
-    if (!ownerName || !landLocation || !landDescription || !landSize || !landUseType) {
+    if (!ownerNameAm || !ownerNameEn || !landLocation || !landDescription || !landSize || !landUseType) {
       return res.status(400).json({ success: false, message: "All required fields must be provided" });
     }
 
@@ -43,7 +43,19 @@ export const getParcelById = async (req, res) => {
       return res.status(404).json({ success: false, message: "Parcel not found" });
     }
 
-    res.status(200).json({ success: true, data: parcel });
+    const ownerNameAm = `${parcel.ownerNameAm.firstName} ${parcel.ownerNameAm.lastName}`;
+    const ownerNameEn = `${parcel.ownerNameEn.firstName} ${parcel.ownerNameEn.lastName}`;
+    
+
+    res.status(200).json({
+       success: true, 
+       data: {
+        ...parcel.toObject(),
+        ownerNameAm, // Add the full name in Amharic
+        ownerNameEn, // Add the full name in English
+      }, 
+      
+      });
   } catch (error) {
     console.error("Error fetching parcel:", error.message);
     res.status(500).json({ success: false, message: "Error fetching parcel", error: error.message });
@@ -182,7 +194,7 @@ export const getParcelHistory = async (req, res) => {
     const { parcelId } = req.params;
 
     const parcel = await Parcel.findById(parcelId)
-      .populate('owner', 'username email')
+      // .populate('owner', 'username email')
       .populate('history.by', 'username email');
 
     if (!parcel) {
@@ -191,11 +203,18 @@ export const getParcelHistory = async (req, res) => {
         message: 'Parcel not found'
       });
     }
-
+      // Combine firstName and lastName for Amharic and English owner names
+      const ownerNameAm = `${parcel.ownerNameAm.firstName} ${parcel.ownerNameAm.lastName}`;
+      const ownerNameEn = `${parcel.ownerNameEn.firstName} ${parcel.ownerNameEn.lastName}`;
+  
     res.json({
       success: true,
       data: {
-        parcel,
+        parcel: {
+          ...parcel.toObject(),
+          ownerNameAm, // Add the full name in Amharic
+          ownerNameEn, // Add the full name in English
+        },
         history: parcel.history.sort((a, b) => b.date - a.date)
       }
     });

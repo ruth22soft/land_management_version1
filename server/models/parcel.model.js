@@ -5,7 +5,10 @@ import mongoose from "mongoose";
 /**
  * @typedef {Object} IParcel
  * @property {string} parcelNumber
- * @property {string} ownerName
+ * @property {string} ownerNameAm.firstName
+ * @property {string} ownerNameAm.lastName
+ * @property {string} ownerNameEn.firstName
+ * @property {string} ownerNameEn.lastName
  * @property {string} nationalId
  * @property {Object} landLocation
  * @property {string} landLocation.regionAm
@@ -44,18 +47,24 @@ const landLocationSchema = new mongoose.Schema({
 const parcelSchema = new mongoose.Schema(
   {
     parcelNumber: { type: String,  unique: true },// Automatically generated
-    ownerName: {
-      type: String,
-      required: true,
-      validate: {
-        // @ts-ignore
-        validator: function (v) {
-          return /^[a-zA-Z]+ [a-zA-Z]+$/.test(v); // Ensures at least two words
-        },
-        // @ts-ignore
-        message: (props) => `${props.value} is not a valid full name. Please provide a first and last name.`,
+    // firstNameAm: {
+    //   type: String,
+      //     return /^[a-zA-Z]+ [a-zA-Z]+$/.test(v); // Ensures at least two words
+      //   },
+      //   // @ts-ignore
+      //   message: (props) => `${props.value} is not a valid full name. Please provide a first and last name.`,
+      // },
+      //},
+      ownerNameAm: {
+        firstName: { type: String, required: true }, // Owner's first name in Amharic
+        lastName: { type: String, required: true },  // Owner's last name in Amharic
       },
-    },
+      ownerNameEn: {
+        firstName: { type: String, required: true }, // Owner's first name in English
+        lastName: { type: String, required: true },  // Owner's last name in English
+      },
+    
+    
     nationalId: { type: String },
     // Nested location object
     landLocation: { type: landLocationSchema, required: true },
