@@ -62,6 +62,20 @@ export const getParcelById = async (req, res) => {
   }
 };
 
+// Get a parcel by parcelNumber
+export const getParcelByNumber = async (req, res) => {
+  try {
+    const { parcelNumber } = req.params;
+    const parcel = await Parcel.findOne({ parcelNumber });
+    if (!parcel) {
+      return res.status(404).json({ success: false, message: "Parcel not found" });
+    }
+    res.status(200).json({ success: true, data: parcel });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Error fetching parcel by number", error: error.message });
+  }
+};
+
 // Update a parcel
 export const updateParcel = async (req, res) => {
   try {

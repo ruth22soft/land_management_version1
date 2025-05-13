@@ -27,7 +27,8 @@ import {
     Alert,
     Tabs,
     Tab,
-    InputAdornment
+    InputAdornment,
+    CircularProgress
 } from '@mui/material';
 import { 
     PhotoCamera, 
@@ -53,6 +54,49 @@ const formatDate = (date) => {
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+};
+
+// API helper to fetch parcel by number
+const fetchParcelByNumber = async (parcelNumber) => {
+    const response = await fetch(`/api/parcels/number/${parcelNumber}`);
+    const contentType = response.headers.get('content-type');
+    if (!response.ok) {
+        // Try to extract error message from JSON, else fallback
+        if (contentType && contentType.includes('application/json')) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Parcel not found');
+        } else {
+            throw new Error('Parcel not found');
+        }
+    }
+    if (contentType && contentType.includes('application/json')) {
+        return response.json();
+    } else {
+        throw new Error('Unexpected response from server');
+    }
+};
+
+// Submit certificate registration to backend
+const submitCertificate = async (data) => {
+    const response = await fetch('/api/certificate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    const contentType = response.headers.get('content-type');
+    if (!response.ok) {
+        if (contentType && contentType.includes('application/json')) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Failed to register certificate');
+        } else {
+            throw new Error('Failed to register certificate');
+        }
+    }
+    if (contentType && contentType.includes('application/json')) {
+        return response.json();
+    } else {
+        throw new Error('Unexpected response from server');
+    }
 };
 
 // Helper functions for generating unique IDs
@@ -160,7 +204,72 @@ const styles = {
     }
 };
 
+// Helper to normalize backend values to Select values
+const normalizeSizeUnit = (unit) => {
+    if (!unit) return '';
+    const map = {
+        'square meters': 'square_meters',
+        'hectares': 'hectares',
+        'acres': 'acres'
+    };
+    return map[unit.trim().toLowerCase()] || '';
+};
+
+const normalizeLandUseType = (type) => {
+    if (!type) return '';
+    const map = {
+        'residential': 'residential',
+        'agricultural': 'agricultural',
+        'commercial': 'commercial',
+        'industrial': 'industrial',
+        'mixed use': 'mixed_use',
+        'mixed_use': 'mixed_use'
+    };
+    return map[type.trim().toLowerCase()] || '';
+};
+
 const CertificationForm = () => {
+    const [parcelNumber, setParcelNumber] = useState('');
+    const [loading, setLoading] = useState(false);
+    const fetchParcelData = async () => {
+    setLoading(true);
+    setErrors({});
+    try {
+        const parcelData = await fetchParcelByNumber(parcelNumber);
+        const parcel = parcelData.data || parcelData; // Support both {data: ...} and direct object
+        setFormData((prev) => ({
+            ...prev,
+            parcelId: parcel._id,
+            ownerFirstName: parcel.ownerNameEn?.firstName || '',
+            ownerFirstNameAm: parcel.ownerNameAm?.firstName || '',
+            ownerLastName: parcel.ownerNameEn?.lastName || '',
+            ownerLastNameAm: parcel.ownerNameAm?.lastName || '',
+            nationalId: parcel.nationalId || '',
+            landLocation: {
+                region: parcel.landLocation?.regionEn || '',
+                regionAm: parcel.landLocation?.regionAm || '',
+                zone: parcel.landLocation?.zoneEn || '',
+                zoneAm: parcel.landLocation?.zoneAm || '',
+                woreda: parcel.landLocation?.woredaEn || '',
+                woredaAm: parcel.landLocation?.woredaAm || '',
+                kebele: parcel.landLocation?.kebeleEn || '',
+                kebeleAm: parcel.landLocation?.kebeleAm || '',
+                block: parcel.landLocation?.blockEn || parcel.landLocation?.blockAm || '',
+                blockAm: parcel.landLocation?.blockAm || '',
+            },
+            landDescription: {
+                en: parcel.landDescription?.en || '',
+                am: parcel.landDescription?.am || '',
+            },
+            landSize: parcel.landSize || '',
+            sizeUnit: normalizeSizeUnit(parcel.sizeUnit),
+            landUseType: normalizeLandUseType(parcel.landUseType),
+        }));
+    } catch (err) {
+        setErrors({ parcelNumber: err.message });
+    }
+    setLoading(false);
+};
     const [formData, setFormData] = useState({
         // Auto-generated Fields
         certificateNumber: generateCertificateNumber(),
@@ -269,26 +378,26 @@ const CertificationForm = () => {
     const renderOwnerInfo = () => (
         <Grid container spacing={2}>
             {/* // for parcel id */}
-            <Grid item xs={12}>
-            <TextField
-                fullWidth
-                name="parcelId"
-                label="Parcel ID"
-                value={formData.parcelId}
-                onChange={handleInputChange}
-                error={Boolean(errors.parcelId)}
-                helperText={errors.parcelId}
-            />
+            <Grid item xs={12} md={8}>
+                <TextField
+                    fullWidth
+                    name="parcelNumber"
+                    label="Parcel Number"
+                    value={parcelNumber}
+                    onChange={(e) => setParcelNumber(e.target.value)}
+                    error={Boolean(errors.parcelNumber)}
+                    helperText={errors.parcelNumber}
+                />
             </Grid>
-            <Grid item xs={12}>
-            <Button
-                variant="contained"
-                color="primary"
-                onClick={fetchParcelData}
-                disabled={loading}
-            >
-                {loading ? <CircularProgress size={24} /> : 'Fetch Parcel Data'}
-            </Button>
+            <Grid item xs={12} md={4}>
+                <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={fetchParcelData}
+                    disabled={loading || !parcelNumber}
+                >
+                    {loading ? <CircularProgress size={24} /> : 'Fetch Parcel Data'}
+                </Button>
             </Grid>
             <Grid item xs={12} md={6}>
                 <TextField
@@ -296,9 +405,13 @@ const CertificationForm = () => {
                     name="ownerFirstName"
                     label="First Name (English)"
                     value={formData.ownerFirstName}
-                    onChange={handleInputChange}
-                    error={Boolean(errors.ownerFirstName)}
-                    helperText={renderErrorMessage('ownerFirstName')}
+                    disabled
+                    InputProps={{
+                        style: { backgroundColor: '#f5f5f5' } // Light gray background for read-only
+                    }}
+                    // onChange={handleInputChange}
+                    // error={Boolean(errors.ownerFirstName)}
+                    // helperText={renderErrorMessage('ownerFirstName')}
                 />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -307,12 +420,14 @@ const CertificationForm = () => {
                     name="ownerFirstNameAm"
                     label="First Name (Amharic) / ስም"
                     value={formData.ownerFirstNameAm}
-                    onChange={handleInputChange}
-                    error={Boolean(errors.ownerFirstNameAm)}
-                    helperText={renderErrorMessage('ownerFirstNameAm')}
-                    InputProps={{
-                        style: { fontFamily: 'Noto Sans Ethiopic' }
-                    }}
+                    disabled
+
+                    // onChange={handleInputChange}
+                    // error={Boolean(errors.ownerFirstNameAm)}
+                    // helperText={renderErrorMessage('ownerFirstNameAm')}
+                    // InputProps={{
+                    //     style: { fontFamily: 'Noto Sans Ethiopic' }
+                    // }}
                 />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -321,9 +436,10 @@ const CertificationForm = () => {
                     name="ownerLastName"
                     label="Last Name (English)"
                     value={formData.ownerLastName}
-                    onChange={handleInputChange}
-                    error={Boolean(errors.ownerLastName)}
-                    helperText={renderErrorMessage('ownerLastName')}
+                    disabled
+                    // onChange={handleInputChange}
+                    // error={Boolean(errors.ownerLastName)}
+                    // helperText={renderErrorMessage('ownerLastName')}
                 />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -332,12 +448,13 @@ const CertificationForm = () => {
                     name="ownerLastNameAm"
                     label="Last Name (Amharic) / የአባት ስም"
                     value={formData.ownerLastNameAm}
-                    onChange={handleInputChange}
-                    error={Boolean(errors.ownerLastNameAm)}
-                    helperText={renderErrorMessage('ownerLastNameAm')}
-                    InputProps={{
-                        style: { fontFamily: 'Noto Sans Ethiopic' }
-                    }}
+                    disabled
+                    // onChange={handleInputChange}
+                    // error={Boolean(errors.ownerLastNameAm)}
+                    // helperText={renderErrorMessage('ownerLastNameAm')}
+                    // InputProps={{
+                    //     style: { fontFamily: 'Noto Sans Ethiopic' }
+                    // }}
                 />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -361,9 +478,10 @@ const CertificationForm = () => {
                     name="nationalId"
                     label="National ID"
                     value={formData.nationalId}
-                    onChange={handleInputChange}
-                    error={Boolean(errors.nationalId)}
-                    helperText={renderErrorMessage('nationalId')}
+                    disabled
+                    // onChange={handleInputChange}
+                    // error={Boolean(errors.nationalId)}
+                    // helperText={renderErrorMessage('nationalId')}
                 />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -640,12 +758,13 @@ const CertificationForm = () => {
                             name={`landLocation.${key}`}
                             label={label}
                             value={value}
-                            onChange={handleInputChange}
-                            error={Boolean(errors.landLocation?.[key])}
-                            helperText={errors.landLocation?.[key] || ''}
-                            InputProps={isAmharic ? {
-                                style: { fontFamily: 'Noto Sans Ethiopic' }
-                            } : undefined}
+                            disabled
+                            // onChange={handleInputChange}
+                            // error={Boolean(errors.landLocation?.[key])}
+                            // helperText={errors.landLocation?.[key] || ''}
+                            // InputProps={isAmharic ? {
+                            //     style: { fontFamily: 'Noto Sans Ethiopic' }
+                            // } : undefined}
                         />
                     </Grid>
                 );
@@ -668,9 +787,10 @@ const CertificationForm = () => {
                         label="Region (English)"
                         name="landLocation.region"
                         value={formData.landLocation.region || ''}
-                        onChange={handleInputChange}
-                        error={Boolean(errors.landLocation?.region)}
-                        helperText={errors.landLocation?.region || ''}
+                        disabled
+                        // onChange={handleInputChange}
+                        // error={Boolean(errors.landLocation?.region)}
+                        // helperText={errors.landLocation?.region || ''}
                     />
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -679,12 +799,13 @@ const CertificationForm = () => {
                         label="Region (Amharic) / ክልል"
                         name="landLocation.regionAm"
                         value={formData.landLocation.regionAm || ''}
-                        onChange={handleInputChange}
-                        error={Boolean(errors.landLocation?.regionAm)}
-                        helperText={errors.landLocation?.regionAm || ''}
-                        InputProps={{
-                            style: { fontFamily: 'Noto Sans Ethiopic' }
-                        }}
+                        disabled
+                        // onChange={handleInputChange}
+                        // error={Boolean(errors.landLocation?.regionAm)}
+                        // helperText={errors.landLocation?.regionAm || ''}
+                        // InputProps={{
+                        //     style: { fontFamily: 'Noto Sans Ethiopic' }
+                        // }}
                     />
                 </Grid>
                 
@@ -695,9 +816,10 @@ const CertificationForm = () => {
                         label="Zone (English)"
                         name="landLocation.zone"
                         value={formData.landLocation.zone || ''}
-                        onChange={handleInputChange}
-                        error={Boolean(errors.landLocation?.zone)}
-                        helperText={errors.landLocation?.zone || ''}
+                        disabled
+                        // onChange={handleInputChange}
+                        // error={Boolean(errors.landLocation?.zone)}
+                        // helperText={errors.landLocation?.zone || ''}
                     />
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -706,12 +828,13 @@ const CertificationForm = () => {
                         label="Zone (Amharic) / ዞን"
                         name="landLocation.zoneAm"
                         value={formData.landLocation.zoneAm || ''}
-                        onChange={handleInputChange}
-                        error={Boolean(errors.landLocation?.zoneAm)}
-                        helperText={errors.landLocation?.zoneAm || ''}
-                        InputProps={{
-                            style: { fontFamily: 'Noto Sans Ethiopic' }
-                        }}
+                        disabled
+                        // onChange={handleInputChange}
+                        // error={Boolean(errors.landLocation?.zoneAm)}
+                        // helperText={errors.landLocation?.zoneAm || ''}
+                        // InputProps={{
+                        //     style: { fontFamily: 'Noto Sans Ethiopic' }
+                        // }}
                     />
                 </Grid>
                 
@@ -722,9 +845,10 @@ const CertificationForm = () => {
                         label="Woreda (English)"
                         name="landLocation.woreda"
                         value={formData.landLocation.woreda || ''}
-                        onChange={handleInputChange}
-                        error={Boolean(errors.landLocation?.woreda)}
-                        helperText={errors.landLocation?.woreda || ''}
+                        disabled
+                        // onChange={handleInputChange}
+                        // error={Boolean(errors.landLocation?.woreda)}
+                        // helperText={errors.landLocation?.woreda || ''}
                     />
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -733,12 +857,13 @@ const CertificationForm = () => {
                         label="Woreda (Amharic) / ወረዳ"
                         name="landLocation.woredaAm"
                         value={formData.landLocation.woredaAm || ''}
-                        onChange={handleInputChange}
-                        error={Boolean(errors.landLocation?.woredaAm)}
-                        helperText={errors.landLocation?.woredaAm || ''}
-                        InputProps={{
-                            style: { fontFamily: 'Noto Sans Ethiopic' }
-                        }}
+                        disabled
+                        // onChange={handleInputChange}
+                        // error={Boolean(errors.landLocation?.woredaAm)}
+                        // helperText={errors.landLocation?.woredaAm || ''}
+                        // InputProps={{
+                        //     style: { fontFamily: 'Noto Sans Ethiopic' }
+                        // }}
                     />
                 </Grid>
                 
@@ -749,9 +874,10 @@ const CertificationForm = () => {
                         label="Kebele (English)"
                         name="landLocation.kebele"
                         value={formData.landLocation.kebele || ''}
-                        onChange={handleInputChange}
-                        error={Boolean(errors.landLocation?.kebele)}
-                        helperText={errors.landLocation?.kebele || ''}
+                        disabled
+                        // onChange={handleInputChange}
+                        // error={Boolean(errors.landLocation?.kebele)}
+                        // helperText={errors.landLocation?.kebele || ''}
                     />
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -760,12 +886,13 @@ const CertificationForm = () => {
                         label="Kebele (Amharic) / ቀበሌ"
                         name="landLocation.kebeleAm"
                         value={formData.landLocation.kebeleAm || ''}
-                        onChange={handleInputChange}
-                        error={Boolean(errors.landLocation?.kebeleAm)}
-                        helperText={errors.landLocation?.kebeleAm || ''}
-                        InputProps={{
-                            style: { fontFamily: 'Noto Sans Ethiopic' }
-                        }}
+                        disabled
+                        // onChange={handleInputChange}
+                        // error={Boolean(errors.landLocation?.kebeleAm)}
+                        // helperText={errors.landLocation?.kebeleAm || ''}
+                        // InputProps={{
+                        //     style: { fontFamily: 'Noto Sans Ethiopic' }
+                        // }}
                     />
                 </Grid>
                 
@@ -775,10 +902,11 @@ const CertificationForm = () => {
                         fullWidth
                         label="Block (English) (Optional)"
                         name="landLocation.block"
-                        value={formData.landLocation.block || ''}
-                        onChange={handleInputChange}
-                        error={Boolean(errors.landLocation?.block)}
-                        helperText={errors.landLocation?.block || ''}
+                        disabled
+                        // value={formData.landLocation.block || ''}
+                        // onChange={handleInputChange}
+                        // error={Boolean(errors.landLocation?.block)}
+                        // helperText={errors.landLocation?.block || ''}
                     />
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -787,12 +915,13 @@ const CertificationForm = () => {
                         label="Block (Amharic) / ብሎክ (አማራጭ)"
                         name="landLocation.blockAm"
                         value={formData.landLocation.blockAm || ''}
-                        onChange={handleInputChange}
-                        error={Boolean(errors.landLocation?.blockAm)}
-                        helperText={errors.landLocation?.blockAm || ''}
-                        InputProps={{
-                            style: { fontFamily: 'Noto Sans Ethiopic' }
-                        }}
+                        disabled
+                        // onChange={handleInputChange}
+                        // error={Boolean(errors.landLocation?.blockAm)}
+                        // helperText={errors.landLocation?.blockAm || ''}
+                        // InputProps={{
+                        //     style: { fontFamily: 'Noto Sans Ethiopic' }
+                        // }}
                     />
                 </Grid>
                 
@@ -807,11 +936,12 @@ const CertificationForm = () => {
                         label="Land Description (English)"
                         name="landDescription.en"
                         value={formData.landDescription?.en || ''}
-                        onChange={handleInputChange}
-                        error={Boolean(errors.landDescription?.en)}
-                        helperText={errors.landDescription?.en || ''}
-                        multiline
-                        rows={4}
+                        disabled
+                        // onChange={handleInputChange}
+                        // error={Boolean(errors.landDescription?.en)}
+                        // helperText={errors.landDescription?.en || ''}
+                        // multiline
+                        // rows={4}
                     />
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -820,14 +950,15 @@ const CertificationForm = () => {
                         label="Land Description (Amharic) / የመሬት ማብራሪያ"
                         name="landDescription.am"
                         value={formData.landDescription?.am || ''}
-                        onChange={handleInputChange}
-                        error={Boolean(errors.landDescription?.am)}
-                        helperText={errors.landDescription?.am || ''}
-                        multiline
-                        rows={4}
-                        InputProps={{
-                            style: { fontFamily: 'Noto Sans Ethiopic' }
-                        }}
+                        disabled
+                        // onChange={handleInputChange}
+                        // error={Boolean(errors.landDescription?.am)}
+                        // helperText={errors.landDescription?.am || ''}
+                        // multiline
+                        // rows={4}
+                        // InputProps={{
+                        //     style: { fontFamily: 'Noto Sans Ethiopic' }
+                        // }}
                     />
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -837,9 +968,10 @@ const CertificationForm = () => {
                         name="landSize"
                         type="number"
                         value={formData.landSize || ''}
-                        onChange={handleInputChange}
-                        error={Boolean(errors.landSize)}
-                        helperText={errors.landSize || ''}
+                        disabled
+                        // onChange={handleInputChange}
+                        // error={Boolean(errors.landSize)}
+                        // helperText={errors.landSize || ''}
                     />
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -848,8 +980,9 @@ const CertificationForm = () => {
                         <Select
                             name="sizeUnit"
                             value={formData.sizeUnit || ''}
-                            onChange={handleInputChange}
-                            error={Boolean(errors.sizeUnit)}
+                            disabled
+                            // onChange={handleInputChange}
+                            // error={Boolean(errors.sizeUnit)}
                         >
                             <MenuItem value="square_meters">Square Meters</MenuItem>
                             <MenuItem value="hectares">Hectares</MenuItem>
@@ -866,8 +999,9 @@ const CertificationForm = () => {
                         <Select
                             name="landUseType"
                             value={formData.landUseType || ''}
-                            onChange={handleInputChange}
-                            error={Boolean(errors.landUseType)}
+                            disabled
+                            // onChange={handleInputChange}
+                            // error={Boolean(errors.landUseType)}
                         >
                             <MenuItem value="residential">Residential</MenuItem>
                             <MenuItem value="agricultural">Agricultural</MenuItem>
@@ -1531,26 +1665,35 @@ const CertificationForm = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
-        // Use validateAllSteps to ensure all steps are valid
-        if (!validateAllSteps()) {
-            // validateAllSteps already sets errors and shows alerts
-            return;
-        }
-
+        setLoading(true);
+        setErrors({});
         try {
-            // Your submit logic here
-            console.log('Form submitted:', formData);
-            // Show success message
-            alert("Form submitted successfully!");
-        } catch (error) {
-            console.error('Error submitting form:', error);
-            setErrors({
-                general: "An error occurred while submitting the form. Please try again."
-            });
-            // Show error alert
-            alert("An error occurred while submitting the form. Please try again.");
+            // Prepare payload for backend
+            const payload = {
+                parcelId: formData.parcelId,
+                dateOfBirth: formData.dateOfBirth,
+                phone: formData.phone,
+                addressAm: formData.addressAm,
+                addressEn: formData.address,
+                fatherNameAm: formData.fatherNameAm,
+                fatherNameEn: formData.fatherName,
+                motherNameAm: formData.motherNameAm,
+                motherNameEn: formData.motherName,
+                maritalStatus: formData.maritalStatus,
+                children: formData.children,
+                issuanceDate: formData.dateOfIssuance,
+                issuingAuthorityAm: formData.issuingAuthorityAm,
+                issuingAuthorityEn: formData.issuingAuthority,
+                expiryDate: formData.expirationDate,
+                // Add file uploads and signatures as needed
+            };
+            await submitCertificate(payload);
+            // Optionally show success message or redirect
+            alert('Certificate registered successfully!');
+        } catch (err) {
+            setErrors({ submit: err.message });
         }
+        setLoading(false);
     };
 
     const isEnglishText = (text) => {
@@ -1911,7 +2054,7 @@ const CertificationForm = () => {
                             
                             // Name (Amharic) validation
                             if (!child.nameAm) {
-                                childError.nameAm = 'Child name in Amharic is required / የልጅ ስም በአማርኛ ያስፈልጋል';
+                                childError.nameAm = 'Child name in Amharic is required / የልጅ ስም በአማርኛ ያስፈል';
                                 hasChildErrors = true;
                             }
                             
@@ -1926,7 +2069,7 @@ const CertificationForm = () => {
                             
                             // Gender validation
                             if (!child.gender) {
-                                childError.gender = 'Child gender is required / የልጅ ፆታ ያስፈልጋል';
+                                childError.gender = 'Child gender is required / የልጅ ፆታ  ያስፈልጋል';
                                 hasChildErrors = true;
                             }
                         }
@@ -2295,12 +2438,12 @@ const CertificationForm = () => {
             Object.entries(allErrors).forEach(([field, error]) => {
                 if (field === 'children') {
                     // Handle children errors separately
-                    allErrors.children.forEach((childErrors, index) => {
-                        if (!childErrors) return;
-                        
-                        Object.entries(childErrors).forEach(([childField, childError]) => {
-                            errorMessage += `- Child ${index + 1} ${childField}: ${childError}\n`;
-                        });
+                    allErrors.children.forEach((childError, index) => {
+                        if (childError) {
+                            Object.entries(childError).forEach(([childField, childErrorMessage]) => {
+                                errorMessage += `- Child ${index + 1} ${childField}: ${childErrorMessage}\n`;
+                            });
+                        }
                     });
                 } else if (typeof error === 'object' && error !== null) {
                     // Handle nested errors like signatures
@@ -2368,45 +2511,47 @@ const CertificationForm = () => {
                 </Typography>
             </Box>
             
-            <Box sx={{ mb: 3 }}>
-                {getStepContent(activeStep)}
-            </Box>
-            
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
-                <Button
-                    variant="outlined"
-                    onClick={handleBack}
-                    disabled={activeStep === 0}
-                >
-                    Back
-                </Button>
+            <form onSubmit={handleSubmit}>
+                <Box sx={{ mb: 3 }}>
+                    {getStepContent(activeStep)}
+                </Box>
                 
-                {activeStep === steps.length - 1 && showCertificate ? (
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
                     <Button
-                        variant="contained"
-                        color="primary"
-                        onClick={() => setShowCertificate(true)}
+                        variant="outlined"
+                        onClick={handleBack}
+                        disabled={activeStep === 0}
                     >
-                        View Certificate
+                        Back
                     </Button>
-                ) : activeStep === steps.length - 1 ? (
-                    <Button
-                        variant="contained"
-                        color="primary"
-                        onClick={handleCertificateGeneration}
-                    >
-                        Generate Certificate
-                    </Button>
-                ) : (
-                    <Button
-                        variant="contained"
-                        color="primary"
-                        onClick={handleNext}
-                    >
-                        Next
-                    </Button>
-                )}
-            </Box>
+                    
+                    {activeStep === steps.length - 1 && showCertificate ? (
+                        <Button
+                            variant="contained"
+                            color="primary"
+                            onClick={() => setShowCertificate(true)}
+                        >
+                            View Certificate
+                        </Button>
+                    ) : activeStep === steps.length - 1 ? (
+                        <Button
+                            variant="contained"
+                            color="primary"
+                            onClick={handleCertificateGeneration}
+                        >
+                            Generate Certificate
+                        </Button>
+                    ) : (
+                        <Button
+                            variant="contained"
+                            color="primary"
+                            onClick={handleNext}
+                        >
+                            Next
+                        </Button>
+                    )}
+                </Box>
+            </form>
 
             {/* Certificate Preview Dialog */}
             <Dialog
@@ -2622,8 +2767,8 @@ const CertificationForm = () => {
                             if (field === 'children' && Array.isArray(error)) {
                                 error.forEach((childError, index) => {
                                     if (childError) {
-                                        Object.entries(childError).forEach(([childField, message]) => {
-                                            addError("Personal Information", `Child ${index + 1} - ${childField}: ${message}`);
+                                        Object.entries(childError).forEach(([childField, childErrorMessage]) => {
+                                            addError("Personal Information", `Child ${index + 1} - ${childField}: ${childErrorMessage}`);
                                         });
                                     }
                                 });

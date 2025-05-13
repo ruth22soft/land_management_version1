@@ -28,36 +28,36 @@ import {
   History as HistoryIcon,
 } from '@mui/icons-material';
 
-// Mock data - replace with actual API calls
-const initialCertificates = [
-  {
-    id: 1,
-    certificateNumber: 'CERT2025001',
-    ownerName: 'Abebe Kebede',
-    parcelNumber: 'P001',
-    issueDate: '2025-01-15',
-    expiryDate: '2030-01-15',
-    status: 'active',
-  },
-  {
-    id: 2,
-    certificateNumber: 'CERT2025002',
-    ownerName: 'Tigist Alemu',
-    parcelNumber: 'P002',
-    issueDate: '2025-01-20',
-    expiryDate: '2030-01-20',
-    status: 'active',
-  },
-  {
-    id: 3,
-    certificateNumber: 'CERT2024001',
-    ownerName: 'Mohammed Ahmed',
-    parcelNumber: 'P003',
-    issueDate: '2024-12-10',
-    expiryDate: '2029-12-10',
-    status: 'expired',
-  },
-];
+// // Mock data - replace with actual API calls
+// const initialCertificates = [
+//   {
+//     id: 1,
+//     certificateNumber: 'CERT2025001',
+//     ownerName: 'Abebe Kebede',
+//     parcelNumber: 'P001',
+//     issueDate: '2025-01-15',
+//     expiryDate: '2030-01-15',
+//     status: 'active',
+//   },
+//   {
+//     id: 2,
+//     certificateNumber: 'CERT2025002',
+//     ownerName: 'Tigist Alemu',
+//     parcelNumber: 'P002',
+//     issueDate: '2025-01-20',
+//     expiryDate: '2030-01-20',
+//     status: 'active',
+//   },
+//   {
+//     id: 3,
+//     certificateNumber: 'CERT2024001',
+//     ownerName: 'Mohammed Ahmed',
+//     parcelNumber: 'P003',
+//     issueDate: '2024-12-10',
+//     expiryDate: '2029-12-10',
+//     status: 'expired',
+//   },
+// ];
 
 const CertificateHistory = () => {
   const [certificates, setCertificates] = useState(initialCertificates);

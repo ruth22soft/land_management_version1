@@ -3,6 +3,7 @@ import {
   createParcel,
   getAllParcels,
   getParcelById,
+  getParcelByNumber,
   updateParcel,
   deleteParcel,
   updateParcelStatus,
@@ -34,6 +35,9 @@ router.get("/", getAllParcels);
 
 // Get a parcel by ID
 router.get("/:id", getParcelById);
+
+// Get a parcel by parcelNumber
+router.get("/number/:parcelNumber", getParcelByNumber);
 
 // Update a parcel
 router.put("/:id", updateParcel);
