@@ -19,23 +19,28 @@ export const createCertificate = async (req, res) => {
     // Use numbers from frontend if provided, otherwise generate
     const registrationNumber = body.registrationNumber || generateRegistrationNumber();
     const certificateNumber = body.certificateNumber || generateCertificateNumber();
-    // Use status from frontend if provided, otherwise default
     const status = body.status || "approved";
 
     // Generate QR code
     const qrCode = await generateQRCode(certificateNumber);
-
-    // Extract file paths (if using file uploads)
     const documentPaths = files ? files.map((file) => file.path) : [];
 
-    // Prepare certificate data, mapping all frontend fields
+    // Map children to match model
+    const children = (body.children || []).map(child => ({
+      name: child.name || '',
+      nameAm: child.nameAm || '',
+      age: child.age ? Number(child.age) : undefined,
+      gender: child.gender || '',
+    }));
+
+    // Prepare certificate data, mapping all frontend fields to model
     const certificateData = {
       parcelId: parcel._id,
       parcelNumber: body.parcelNumber || parcel.parcelNumber,
       certificateNumber,
       registrationNumber,
       status,
-      dateOfIssuance: body.dateOfIssuance || new Date(),
+      dateOfIssuance: body.dateOfIssuance ? new Date(body.dateOfIssuance) : new Date(),
       // Owner Information
       ownerFirstName: body.ownerFirstName || parcel.ownerNameEn?.firstName || '',
       ownerFirstNameAm: body.ownerFirstNameAm || parcel.ownerNameAm?.firstName || '',
@@ -45,7 +50,7 @@ export const createCertificate = async (req, res) => {
       phone: body.phone || '',
       address: body.address || '',
       addressAm: body.addressAm || '',
-      dateOfBirth: body.dateOfBirth || '',
+      dateOfBirth: body.dateOfBirth ? new Date(body.dateOfBirth) : undefined,
       // Additional Personal Information
       fatherName: body.fatherName || '',
       fatherNameAm: body.fatherNameAm || '',
@@ -53,7 +58,7 @@ export const createCertificate = async (req, res) => {
       motherNameAm: body.motherNameAm || '',
       maritalStatus: body.maritalStatus || '',
       // Children
-      children: body.children || [],
+      children,
       // Land Location (nested object)
       landLocation: body.landLocation || {
         region: parcel.landLocation?.regionEn || '',
