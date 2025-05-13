@@ -82,6 +82,11 @@ const certificateSchema = new mongoose.Schema(
       authority: String, // Path to the authority's signature
     },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    status: {
+      type: String,
+      enum: ["approved", "pending", "rejected", "expired"],
+      default: "approved"
+    },
   },
   { timestamps: true }
 );

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect} from 'react';
 import {
   Box,
   Paper,
@@ -26,46 +26,61 @@ import {
   Search as SearchIcon,
   Download as DownloadIcon,
   History as HistoryIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 
-// // Mock data - replace with actual API calls
-// const initialCertificates = [
-//   {
-//     id: 1,
-//     certificateNumber: 'CERT2025001',
-//     ownerName: 'Abebe Kebede',
-//     parcelNumber: 'P001',
-//     issueDate: '2025-01-15',
-//     expiryDate: '2030-01-15',
-//     status: 'active',
-//   },
-//   {
-//     id: 2,
-//     certificateNumber: 'CERT2025002',
-//     ownerName: 'Tigist Alemu',
-//     parcelNumber: 'P002',
-//     issueDate: '2025-01-20',
-//     expiryDate: '2030-01-20',
-//     status: 'active',
-//   },
-//   {
-//     id: 3,
-//     certificateNumber: 'CERT2024001',
-//     ownerName: 'Mohammed Ahmed',
-//     parcelNumber: 'P003',
-//     issueDate: '2024-12-10',
-//     expiryDate: '2029-12-10',
-//     status: 'expired',
-//   },
-// ];
-
 const CertificateHistory = () => {
-  const [certificates, setCertificates] = useState(initialCertificates);
+  const [allCertificates, setAllCertificates] = useState([]);
+  const [certificates, setCertificates] = useState([]);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCertificate, setSelectedCertificate] = useState(null);
   const [openDialog, setOpenDialog] = useState(false);
+
+  // Helper to map backend fields to frontend fields
+  const mapCertificate = (cert) => ({
+    certificateNumber: cert.certificateNumber || cert.certificate_number || '',
+    ownerName: (cert.firstNameEn && cert.lastNameEn)
+      ? `${cert.firstNameEn} ${cert.lastNameEn}`
+      : (cert.firstNameAm && cert.lastNameAm)
+        ? `${cert.firstNameAm} ${cert.lastNameAm}`
+        : cert.ownerName || cert.owner_name || cert.owner?.name || '',
+    parcelNumber: cert.parcelNumber || cert.parcel_number || cert.parcelNo || '',
+    issueDate: cert.issueDate || cert.issue_date || cert.dateOfIssuance || cert.issuanceDate || '',
+    expiryDate: cert.expiryDate || cert.expiry_date || cert.expirationDate || '',
+    status: cert.status || '',
+    _id: cert._id || cert.id,
+    // ...add more fields as needed
+  });
+
+  // Fetch certificates from backend
+  const fetchCertificates = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/certificates', {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
+      const data = await response.json();
+      console.log('Fetched certificates:', data); // Debug log
+      if (data.success) {
+        const mapped = data.data.map(mapCertificate);
+        setAllCertificates(mapped);
+        setCertificates(mapped);
+      } else {
+        setAllCertificates([]);
+        setCertificates([]);
+      }
+    } catch (err) {
+      setAllCertificates([]);
+      setCertificates([]);
+    }
+  };
+
+  useEffect(() => {
+    fetchCertificates();
+  }, []);
+
 
   const handleChangePage = (event, newPage) => {
     setPage(newPage);
@@ -77,10 +92,10 @@ const CertificateHistory = () => {
   };
 
   const handleSearch = () => {
-    const filtered = initialCertificates.filter(cert => 
-      cert.certificateNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      cert.ownerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      cert.parcelNumber.toLowerCase().includes(searchTerm.toLowerCase())
+    const filtered = allCertificates.filter(cert =>
+      (cert.certificateNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (cert.ownerName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (cert.parcelNumber || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
     setCertificates(filtered);
   };
@@ -111,6 +126,28 @@ const CertificateHistory = () => {
   const generateVerificationURL = (id) => {
     // Replace with actual URL generation logic
     return `https://example.com/verify/${id}`;
+  };
+
+  // Delete certificate handler
+  const handleDeleteCertificate = async (certificateId) => {
+    const confirmDelete = window.confirm('Are you sure you want to delete this certificate? This action cannot be undone.');
+    if (!confirmDelete) return;
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/certificates/${certificateId}`, {
+        method: 'DELETE',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
+      const data = await response.json();
+      if (data.success) {
+        // Remove the deleted certificate from the list
+        setCertificates((prev) => prev.filter(cert => cert._id !== certificateId));
+      } else {
+        alert(data.message || 'Failed to delete certificate.');
+      }
+    } catch (err) {
+      alert('Failed to delete certificate.');
+    }
   };
 
   return (
@@ -160,7 +197,7 @@ const CertificateHistory = () => {
               {certificates
                 .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                 .map((certificate) => (
-                  <TableRow key={certificate.id}>
+                  <TableRow key={certificate._id}>
                     <TableCell>{certificate.certificateNumber}</TableCell>
                     <TableCell>{certificate.ownerName}</TableCell>
                     <TableCell>{certificate.parcelNumber}</TableCell>
@@ -185,6 +222,12 @@ const CertificateHistory = () => {
                         onClick={() => {/* Add download logic */}}
                       >
                         <DownloadIcon />
+                      </IconButton>
+                      <IconButton
+                        color="error"
+                        onClick={() => handleDeleteCertificate(certificate._id)}
+                      >
+                        <DeleteIcon />
                       </IconButton>
                     </TableCell>
                   </TableRow>

@@ -46,6 +46,7 @@ import SignaturePad from 'react-signature-canvas';
 import { Document, Page, PDFDownloadLink } from '@react-pdf/renderer';
 import { CertificateDocument } from '../certification/CertificateGenerator';
 import CertificateGenerator from '../certification/CertificateGenerator';
+import { useNavigate } from 'react-router-dom';
 
 // Helper function to format date as YYYY-MM-DD
 const formatDate = (date) => {
@@ -78,9 +79,13 @@ const fetchParcelByNumber = async (parcelNumber) => {
 
 // Submit certificate registration to backend
 const submitCertificate = async (data) => {
-    const response = await fetch('/api/certificate', {
+    const token = localStorage.getItem('token');
+    const response = await fetch('/api/certificates', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+            'Content-Type': 'application/json',
+              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+         },
         body: JSON.stringify(data),
     });
     const contentType = response.headers.get('content-type');
@@ -229,6 +234,7 @@ const normalizeLandUseType = (type) => {
 };
 
 const CertificationForm = () => {
+    const navigate = useNavigate();
     const [parcelNumber, setParcelNumber] = useState('');
     const [loading, setLoading] = useState(false);
     const fetchParcelData = async () => {
@@ -1664,9 +1670,38 @@ const CertificationForm = () => {
     };
 
     const handleSubmit = async (e) => {
-        e.preventDefault();
+        if (e && e.preventDefault) e.preventDefault();
         setLoading(true);
         setErrors({});
+
+        // Validate all fields before submitting
+        const allErrors = validateForm();
+        if (Object.keys(allErrors).length > 0) {
+            setErrors(allErrors);
+            // Format errors for display
+            let errorMessage = "Please fix the following issues before submitting:\n\n";
+            Object.entries(allErrors).forEach(([field, error]) => {
+                if (field === 'children' && Array.isArray(error)) {
+                    error.forEach((childError, index) => {
+                        if (childError) {
+                            Object.entries(childError).forEach(([childField, childErrorMessage]) => {
+                                errorMessage += `Child ${index + 1} - ${childField}: ${childErrorMessage}\n`;
+                            });
+                        }
+                    });
+                } else if (typeof error === 'object' && error !== null) {
+                    Object.values(error).forEach(msg => {
+                        errorMessage += `${field}: ${msg}\n`;
+                    });
+                } else {
+                    errorMessage += `${field}: ${error}\n`;
+                }
+            });
+            alert(errorMessage); // Show a user-friendly alert
+            setLoading(false);
+            return;
+        }
+
         try {
             // Prepare payload for backend
             const payload = {
@@ -1686,12 +1721,15 @@ const CertificationForm = () => {
                 issuingAuthorityEn: formData.issuingAuthority,
                 expiryDate: formData.expirationDate,
                 // Add file uploads and signatures as needed
+                status: "approved", // Set status to approved
             };
             await submitCertificate(payload);
-            // Optionally show success message or redirect
-            alert('Certificate registered successfully!');
+            // Optionally show PDF preview here (if you have a modal or PDF component)
+            // After viewing/generating the PDF, navigate to certificate history
+            navigate('/certificate-history');
         } catch (err) {
             setErrors({ submit: err.message });
+            alert(err.message || 'An error occurred while submitting the form.');
         }
         setLoading(false);
     };
@@ -1850,11 +1888,8 @@ const CertificationForm = () => {
 
     const handleNext = () => {
         const stepErrors = validateStep(activeStep);
-        console.log("Step errors:", stepErrors, "Active step:", activeStep);
-        
+        // Only block next step if there are errors for the current step's fields
         if (Object.keys(stepErrors).length === 0) {
-            console.log("No validation errors, proceeding to next step");
-            // Clear any existing errors for this step
             setErrors({});
             
             // If we're at Legal Details step (step 3), and this is the first time we're filling it
@@ -1887,11 +1922,7 @@ const CertificationForm = () => {
             // Just go to the next step
             setActiveStep((prevActiveStep) => prevActiveStep + 1);
         } else {
-            // Display errors for this step
-            setErrors(prev => ({
-                ...prev,
-                ...stepErrors
-            }));
+            setErrors(stepErrors); // Only set current step errors
             
             // Log validation errors for debugging
             console.log("Step validation failed:", stepErrors);
@@ -1920,80 +1951,69 @@ const CertificationForm = () => {
             case 0: // Owner Information
                 // Validate owner first name (English)
                 if (!formData.ownerFirstName) {
-                    errors.ownerFirstName = { 
-                        en: 'First name is required', 
-                        am: 'ስም ያስፈልጋል' 
+                    errors.ownerFirstName = {
+                        en: 'First name is required',
+                        am: 'ስም ያስፈልጋል'
                     };
                 }
-                
                 // Validate owner first name (Amharic)
                 if (!formData.ownerFirstNameAm) {
-                    errors.ownerFirstNameAm = { 
-                        en: 'First name in Amharic is required', 
-                        am: 'ስም በአማርኛ ያስፈልጋል' 
+                    errors.ownerFirstNameAm = {
+                        en: 'First name in Amharic is required',
+                        am: 'ስም በአማርኛ ያስፈልጋል'
                     };
                 }
-                
                 // Validate owner last name (English)
                 if (!formData.ownerLastName) {
-                    errors.ownerLastName = { 
-                        en: 'Last name is required', 
-                        am: 'የአባት ስም ያስፈልጋል' 
+                    errors.ownerLastName = {
+                        en: 'Last name is required',
+                        am: 'የአባት ስም ያስፈልጋል'
                     };
                 }
-                
                 // Validate owner last name (Amharic)
                 if (!formData.ownerLastNameAm) {
-                    errors.ownerLastNameAm = { 
-                        en: 'Last name in Amharic is required', 
-                        am: 'የአባት ስም በአማርኛ ያስፈልጋል' 
+                    errors.ownerLastNameAm = {
+                        en: 'Last name in Amharic is required',
+                        am: 'የአባት ስም በአማርኛ ያስፈልጋል'
                     };
                 }
-                
                 // Validate date of birth
                 if (!formData.dateOfBirth) {
-                    errors.dateOfBirth = "Date of birth is required / የልደት ቀን ያስፈልጋል";
+                    errors.dateOfBirth = 'Date of birth is required / የልደት ቀን ያስፈልጋል';
                 } else {
-                    // Check if the date is in the future
                     const birthDate = new Date(formData.dateOfBirth);
                     const currentDate = new Date();
-                    
                     if (birthDate > currentDate) {
-                        errors.dateOfBirth = "Date of birth cannot be in the future / የትውልድ ቀን ከዛሬ በኋላ መሆን አይችልም";
+                        errors.dateOfBirth = 'Date of birth cannot be in the future / የትውልድ ቀን ከዛሬ በኋላ መሆን አይችልም';
                     }
-                    
-                    // Check if person is at least 18 years old
                     const eighteenYearsAgo = new Date();
                     eighteenYearsAgo.setFullYear(currentDate.getFullYear() - 18);
-                    
                     if (birthDate > eighteenYearsAgo) {
-                        errors.dateOfBirth = "Land owner must be at least 18 years old / የመሬት ባለቤት ቢያንስ 18 ዓመት መሆን አለበት";
+                        errors.dateOfBirth = 'Land owner must be at least 18 years old / የመሬት ባለቤት ቢያንስ 18 ዓመት መሆን አለበት';
                     }
                 }
-                
-                // Validate national ID 
+                // Validate national ID
                 if (!formData.nationalId) {
-                    errors.nationalId = { 
-                        en: 'National ID is required', 
-                        am: 'መታወቂያ ቁጥር ያስፈልጋል' 
+                    errors.nationalId = {
+                        en: 'National ID is required',
+                        am: 'መታወቂያ ቁጥር ያስፈልጋል'
                     };
                 }
-                
                 // Validate phone number
                 if (!formData.phone) {
-                    errors.phone = { 
-                        en: 'Phone number is required', 
-                        am: 'ስልክ ቁጥር ያስፈልጋል' 
+                    errors.phone = {
+                        en: 'Phone number is required',
+                        am: 'ስልክ ቁጥር ያስፈልጋል'
                     };
                 } else if (!/^\d{9,10}$/.test(formData.phone.replace(/\D/g, ''))) {
-                    errors.phone = { 
-                        en: 'Phone number must be 9-10 digits', 
-                        am: 'ስልክ ቁጥር 9-10 አሃዞች መሆን አለበት' 
+                    errors.phone = {
+                        en: 'Phone number must be 9-10 digits',
+                        am: 'ስልክ ቁጥር 9-10 አሃዞች መሆን አለበት'
                     };
                 }
                 
                 // Validate address (English)
-                if (!formData.address) {
+                if (!formData.address){
                     errors.address = { 
                         en: 'Address is required', 
                         am: 'አድራሻ ያስፈልጋል' 
@@ -2007,8 +2027,7 @@ const CertificationForm = () => {
                         am: 'አድራሻ በአማርኛ ያስፈልጋል' 
                     };
                 }
-                break;
-                
+                break;      
             case 1: // Personal Information
                 // Validate father's name
                 if (!formData.fatherName) {
@@ -2534,12 +2553,22 @@ const CertificationForm = () => {
                             View Certificate
                         </Button>
                     ) : activeStep === steps.length - 1 ? (
-                        <Button
+                        // <Button
+                        //     variant="contained"
+                        //     color="primary"
+                        //     onClick={handleCertificateGeneration}
+                        // >
+                        //     Generate Certificate
+                        // </Button>
+                         <Button
                             variant="contained"
                             color="primary"
-                            onClick={handleCertificateGeneration}
+                            onClick={handleSubmit}
+                            disabled={loading}
+                            fullWidth
+                            sx={{ mt: 3 }}
                         >
-                            Generate Certificate
+                            {loading ? 'Submitting...' : 'Submit'}
                         </Button>
                     ) : (
                         <Button

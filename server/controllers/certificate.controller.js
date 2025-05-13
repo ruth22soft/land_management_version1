@@ -16,62 +16,85 @@ export const createCertificate = async (req, res) => {
       return res.status(404).json({ message: "Parcel not found" });
     }
 
-    // Generate unique numbers
-    const registrationNumber = generateRegistrationNumber();
-    const certificateNumber = generateCertificateNumber();
+    // Use numbers from frontend if provided, otherwise generate
+    const registrationNumber = body.registrationNumber || generateRegistrationNumber();
+    const certificateNumber = body.certificateNumber || generateCertificateNumber();
+    // Use status from frontend if provided, otherwise default
+    const status = body.status || "approved";
 
     // Generate QR code
     const qrCode = await generateQRCode(certificateNumber);
 
-    // Extract file paths
+    // Extract file paths (if using file uploads)
     const documentPaths = files ? files.map((file) => file.path) : [];
 
-    // Prepare certificate data
+    // Prepare certificate data, mapping all frontend fields
     const certificateData = {
       parcelId: parcel._id,
-      firstNameAm: parcel.ownerNameAm.firstName,
-      lastNameAm: parcel.ownerNameAm.lastName,
-      firstNameEn: parcel.ownerNameEn.firstName,
-      lastNameEn: parcel.ownerNameEn.lastName,
-      nationalId: parcel.nationalId,
-      dateOfBirth: body.dateOfBirth,
-      phone: body.phone,
-      addressAm: body.addressAm,
-      addressEn: body.addressEn,
-      fatherNameAm: body.fatherNameAm,
-      fatherNameEn: body.fatherNameEn,
-      motherNameAm: body.motherNameAm,
-      motherNameEn: body.motherNameEn,
-      maritalStatus: body.maritalStatus,
-      children: body.children,
-      regionAm: parcel.landLocation.regionAm,
-      regionEn: parcel.landLocation.regionEn,
-      zoneAm: parcel.landLocation.zoneAm,
-      zoneEn: parcel.landLocation.zoneEn,
-      woredaAm: parcel.landLocation.woredaAm,
-      woredaEn: parcel.landLocation.woredaEn,
-      kebeleAm: parcel.landLocation.kebeleAm,
-      kebeleEn: parcel.landLocation.kebeleEn,
-      block: parcel.landLocation.block,
-      landDescAm: parcel.landDescription.am,
-      landDescEn: parcel.landDescription.en,
-      landSize: parcel.landSize,
-      sizeUnit: parcel.sizeUnit,
-      landUseType: parcel.landUseType,
-      registrationNumber,
+      parcelNumber: body.parcelNumber || parcel.parcelNumber,
       certificateNumber,
-      issuanceDate: body.issuanceDate || new Date(),
-      issuingAuthorityAm: body.issuingAuthorityAm,
-      issuingAuthorityEn: body.issuingAuthorityEn,
-      expiryDate: body.expiryDate,
+      registrationNumber,
+      status,
+      dateOfIssuance: body.dateOfIssuance || new Date(),
+      // Owner Information
+      ownerFirstName: body.ownerFirstName || parcel.ownerNameEn?.firstName || '',
+      ownerFirstNameAm: body.ownerFirstNameAm || parcel.ownerNameAm?.firstName || '',
+      ownerLastName: body.ownerLastName || parcel.ownerNameEn?.lastName || '',
+      ownerLastNameAm: body.ownerLastNameAm || parcel.ownerNameAm?.lastName || '',
+      nationalId: body.nationalId || parcel.nationalId || '',
+      phone: body.phone || '',
+      address: body.address || '',
+      addressAm: body.addressAm || '',
+      dateOfBirth: body.dateOfBirth || '',
+      // Additional Personal Information
+      fatherName: body.fatherName || '',
+      fatherNameAm: body.fatherNameAm || '',
+      motherName: body.motherName || '',
+      motherNameAm: body.motherNameAm || '',
+      maritalStatus: body.maritalStatus || '',
+      // Children
+      children: body.children || [],
+      // Land Location (nested object)
+      landLocation: body.landLocation || {
+        region: parcel.landLocation?.regionEn || '',
+        regionAm: parcel.landLocation?.regionAm || '',
+        zone: parcel.landLocation?.zoneEn || '',
+        zoneAm: parcel.landLocation?.zoneAm || '',
+        woreda: parcel.landLocation?.woredaEn || '',
+        woredaAm: parcel.landLocation?.woredaAm || '',
+        kebele: parcel.landLocation?.kebeleEn || '',
+        kebeleAm: parcel.landLocation?.kebeleAm || '',
+        block: parcel.landLocation?.blockEn || parcel.landLocation?.blockAm || '',
+        blockAm: parcel.landLocation?.blockAm || '',
+      },
+      // Land Details
+      landDescription: body.landDescription || {
+        en: parcel.landDescription?.en || '',
+        am: parcel.landDescription?.am || '',
+      },
+      landSize: body.landSize || parcel.landSize || '',
+      sizeUnit: body.sizeUnit || parcel.sizeUnit || '',
+      landUseType: body.landUseType || parcel.landUseType || '',
+      landUseTypeAm: body.landUseTypeAm || '',
+      // Legal Details
+      legalRights: body.legalRights || { en: '', am: '' },
+      termsAndConditions: body.termsAndConditions || { en: '', am: '' },
+      // Certificate Details
+      issuingAuthority: body.issuingAuthority || '',
+      issuingAuthorityAm: body.issuingAuthorityAm || '',
+      registrationOfficer: body.registrationOfficer || '',
+      registrationOfficerAm: body.registrationOfficerAm || '',
+      additionalNotes: body.additionalNotes || '',
+      additionalNotesAm: body.additionalNotesAm || '',
+      // Photos and Signatures
+      landPhoto: body.landPhoto || null,
+      boundaryPhoto: body.boundaryPhoto || null,
+      ownerPhoto: body.ownerPhoto || null,
+      landPlanImage: body.landPlanImage || null,
+      signatures: body.signatures || { owner: null, registrationOfficer: null },
       documentPaths,
       qrCode,
-      ownerPhoto: body.ownerPhoto,
-      signatures: {
-        owner: body.ownerSignature,
-        authority: body.authoritySignature,
-      },
-      createdBy: req.user._id,
+      createdBy: req.user?._id,
     };
 
     // Create and save the certificate
