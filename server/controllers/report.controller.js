@@ -46,21 +46,15 @@ export const generateReport = async (req, res) => {
     switch (type) {
       case 'Certificates Issued Report':
         title = 'Certificates Issued Report';
-        console.log('Fetching certificates with filter:', dateFilter);
-        
-        // Get all certificates matching date filter
         data = await Certificate.find(dateFilter)
           .sort({ createdAt: -1 })
           .select(
             'certificateNumber firstNameEn lastNameEn landUseType landSize sizeUnit createdAt regionEn'
           )
           .lean();
-        
-        console.log(`Found ${data.length} certificates`);
-        
-        // Add a default status since it might not be present
         data = data.map(item => ({
           ...item,
+          region: item.regionEn || '',
           status: 'Issued'
         }));
         break;
@@ -70,37 +64,29 @@ export const generateReport = async (req, res) => {
         data = await Parcel.find(dateFilter)
           .sort({ createdAt: -1 })
           .select(
-            'parcelNumber location size sizeUnit landUseType certificateNumber createdAt'
+            'parcelNumber landLocation landSize sizeUnit landUseType createdAt status'
           )
           .lean();
-        
-        // Add a default status
         data = data.map(item => ({
           ...item,
-          status: 'Active'
+          region: item.landLocation?.regionEn || '',
+          landSize: item.landSize ?? '',
+          status: item.status || 'Active'
         }));
         break;
         
       case 'Land Registration Report':
         title = 'Land Registration Report';
-        // For land registration, we'll get certificates with additional data about parcels
         data = await Certificate.find(dateFilter)
           .sort({ createdAt: -1 })
           .select(
             'certificateNumber firstNameEn lastNameEn landSize sizeUnit landUseType createdAt regionEn'
           )
           .lean();
-        
-        console.log(`Found ${data.length} land registrations`);
-        
-        // Add formatted fields that might be needed in the report
         data = data.map(item => ({
           ...item,
-          registrationType: 'New Registration', // Default
-          details: `Land Registration for ${item.firstNameEn || ''} ${item.lastNameEn || ''}`.trim(),
-          location: item.regionEn || 'Unknown',
-          parcelSize: item.landSize ? `${item.landSize} ${item.sizeUnit || 'sq.m'}` : 'Not specified',
-          status: 'Completed' // Default status
+          region: item.regionEn || '',
+          status: 'Completed'
         }));
         break;
 

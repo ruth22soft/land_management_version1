@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import {
   Box,
   Paper,
@@ -29,151 +29,30 @@ import {
   PictureAsPdf as PdfIcon,
   Assessment as AssessmentIcon
 } from '@mui/icons-material';
-import { jsPDF } from 'jspdf';
+import AuthContext from '../../context/AuthContext';
+import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { useReactToPrint } from 'react-to-print';
 
-// Import the sample data directly
-const sampleReports = {
-  "landRegistration": [
-    {
-      "id": "LR001",
-      "date": "2024-01-15",
-      "reference": "LR-2024-001",
-      "type": "New Registration",
-      "details": "Land Registration in Addis Ababa",
-      "status": "Completed",
-      "owner": "Abebe Kebede",
-      "location": "Addis Ababa",
-      "parcelSize": "200 sq meters"
-    },
-    {
-      "id": "LR002",
-      "date": "2024-01-16",
-      "reference": "LR-2024-002",
-      "type": "Transfer",
-      "details": "Property Transfer in Bahir Dar",
-      "status": "Pending",
-      "owner": "Kebede Alemu",
-      "location": "Bahir Dar",
-      "parcelSize": "300 sq meters"
-    },
-    {
-      "id": "LR003",
-      "date": "2024-01-17",
-      "reference": "LR-2024-003",
-      "type": "New Registration",
-      "details": "Land Registration in Hawassa",
-      "status": "Completed",
-      "owner": "Almaz Tadesse",
-      "location": "Hawassa",
-      "parcelSize": "150 sq meters"
-    }
-  ],
-  "certificates": [
-    {
-      "id": "CERT001",
-      "date": "2024-01-15",
-      "reference": "CERT-2024-001",
-      "type": "Land Title",
-      "details": "Certificate issued to Abebe Kebede",
-      "status": "Issued",
-      "owner": "Abebe Kebede",
-      "validUntil": "2029-01-15",
-      "certificateType": "Original"
-    },
-    {
-      "id": "CERT002",
-      "date": "2024-01-16",
-      "reference": "CERT-2024-002",
-      "type": "Land Title",
-      "details": "Certificate issued to Kebede Alemu",
-      "status": "Pending",
-      "owner": "Kebede Alemu",
-      "validUntil": "2029-01-16",
-      "certificateType": "Original"
-    },
-    {
-      "id": "CERT003",
-      "date": "2024-01-17",
-      "reference": "CERT-2024-003",
-      "type": "Land Title",
-      "details": "Certificate issued to Almaz Tadesse",
-      "status": "Issued",
-      "owner": "Almaz Tadesse",
-      "validUntil": "2029-01-17",
-      "certificateType": "Duplicate"
-    }
-  ],
-  "parcels": [
-    {
-      "id": "PAR001",
-      "date": "2024-01-15",
-      "reference": "PAR-2024-001",
-      "type": "Residential",
-      "details": "Residential Plot in Bole",
-      "status": "Active",
-      "location": "Bole, Addis Ababa",
-      "size": "200 sq meters",
-      "owner": "Abebe Kebede"
-    },
-    {
-      "id": "PAR002",
-      "date": "2024-01-16",
-      "reference": "PAR-2024-002",
-      "type": "Commercial",
-      "details": "Commercial Plot in Piassa",
-      "status": "Active",
-      "location": "Piassa, Addis Ababa",
-      "size": "500 sq meters",
-      "owner": "Kebede Alemu"
-    },
-    {
-      "id": "PAR003",
-      "date": "2024-01-17",
-      "reference": "PAR-2024-003",
-      "type": "Agricultural",
-      "details": "Agricultural Land in Sululta",
-      "status": "Under Review",
-      "location": "Sululta",
-      "size": "1000 sq meters",
-      "owner": "Almaz Tadesse"
-    }
-  ]
-};
-
 const GenerateReport = () => {
   const [reportType, setReportType] = useState('');
-  const [dateRange, setDateRange] = useState({
-    startDate: '',
-    endDate: ''
-  });
+  const [dateRange, setDateRange] = useState({ startDate: '', endDate: '' });
   const [loading, setLoading] = useState(false);
-  const tableRef = React.useRef(null);
+  const [error, setError] = useState(null);
+  const [reportData, setReportData] = useState([]);
+  const [reportTitle, setReportTitle] = useState('');
+  const { user } = useContext(AuthContext);
+  const tableRef = useRef(null);
 
   const reportTypes = [
-    { value: 'landRegistration', label: 'Land Registration Report' },
-    { value: 'certificates', label: 'Certificates Issued Report' },
-    { value: 'parcels', label: 'Parcel Management Report' }
+    { value: 'Certificates Issued Report', label: 'Certificates Issued Report' },
+    { value: 'Parcel Management Report', label: 'Parcel Management Report' },
+    { value: 'Land Registration Report', label: 'Land Registration Report' },
   ];
 
-  // Filter data based on date range
-  const getFilteredData = () => {
-    if (!reportType) return [];
-
-    const data = sampleReports[reportType];
-    if (!dateRange.startDate || !dateRange.endDate) return data;
-
-    return data.filter(item => {
-      const itemDate = new Date(item.date);
-      const start = new Date(dateRange.startDate);
-      const end = new Date(dateRange.endDate);
-      return itemDate >= start && itemDate <= end;
-    });
-  };
-
   const getStatusColor = (status) => {
+    if (!status) return 'default';
     switch (status.toLowerCase()) {
       case 'completed':
       case 'issued':
@@ -187,42 +66,108 @@ const GenerateReport = () => {
     }
   };
 
-  const handleGenerateReport = () => {
+  const handleGenerateReport = async () => {
+    if (!reportType) return;
     setLoading(true);
-    // Simulate loading
-    setTimeout(() => {
+    setError(null);
+    setReportData([]);
+    setReportTitle('');
+    try {
+      // Get JWT token
+      let token = null;
+      if (user && user.token) {
+        token = user.token;
+      } else {
+        token = localStorage.getItem('token');
+      }
+      const headers = token ? {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      } : { 'Content-Type': 'application/json' };
+      // Prepare payload
+      const payload = {
+        type: reportType,
+        startDate: dateRange.startDate || undefined,
+        endDate: dateRange.endDate || undefined,
+      };
+      const response = await fetch('/api/reports/generate', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.message || 'Failed to generate report');
+      }
+      const result = await response.json();
+      setReportData(result.data || []);
+      setReportTitle(result.report?.title || reportType);
+    } catch (err) {
+      setError(err.message || 'Failed to generate report');
+    } finally {
       setLoading(false);
-    }, 500);
+    }
   };
 
   // Function to handle PDF generation
   const handlePdfExport = () => {
-    if (!reportType || getFilteredData().length === 0) return;
+    if (!reportType || reportData.length === 0) return;
 
     const doc = new jsPDF();
-    const tableData = getFilteredData().map(row => [
-      row.date,
-      row.reference,
-      row.type,
-      row.details,
-      row.status
-    ]);
+    let head = [];
+    let tableData = [];
+    if (reportType === 'Certificates Issued Report') {
+      head = [['Certificate Number', 'First Name', 'Last Name', 'Land Use Type', 'Land Size', 'Unit', 'Region', 'Date Issued', 'Status']];
+      tableData = reportData.map(row => [
+        row.certificateNumber || '',
+        row.firstNameEn || '',
+        row.lastNameEn || '',
+        row.landUseType || '',
+        row.landSize || '',
+        row.sizeUnit || '',
+        row.regionEn || '',
+        row.createdAt ? new Date(row.createdAt).toLocaleDateString() : '',
+        row.status || ''
+      ]);
+    } else if (reportType === 'Parcel Management Report') {
+      head = [['Parcel Number', 'Region', 'Land Size', 'Unit', 'Land Use Type', 'Date Registered', 'Status']];
+      tableData = reportData.map(row => [
+        row.parcelNumber || '',
+        row.landLocation?.regionEn || row.regionEn || '',
+        row.landSize ?? row.size ?? '',
+        row.sizeUnit || '',
+        row.landUseType || '',
+        row.createdAt ? new Date(row.createdAt).toLocaleDateString() : '',
+        row.status || ''
+      ]);
+    } else if (reportType === 'Land Registration Report') {
+      head = [['Certificate Number', 'First Name', 'Last Name', 'Land Use Type', 'Land Size', 'Unit', 'Region', 'Date Registered', 'Status']];
+      tableData = reportData.map(row => [
+        row.certificateNumber || '',
+        row.firstNameEn || '',
+        row.lastNameEn || '',
+        row.landUseType || '',
+        row.landSize || '',
+        row.sizeUnit || '',
+        row.regionEn || '',
+        row.createdAt ? new Date(row.createdAt).toLocaleDateString() : '',
+        row.status || ''
+      ]);
+    }
 
     doc.autoTable({
-      head: [['Date', 'Reference', 'Type', 'Details', 'Status']],
+      head,
       body: tableData,
       startY: 20,
       margin: { top: 30 },
       didDrawPage: function(data) {
-        // Add title to the PDF
         doc.setFontSize(16);
         doc.text(
           `${reportTypes.find(t => t.value === reportType)?.label || 'Report'}`,
           14,
           15
         );
-        
-        // Add date range if specified
         if (dateRange.startDate && dateRange.endDate) {
           doc.setFontSize(10);
           doc.text(
@@ -233,20 +178,51 @@ const GenerateReport = () => {
         }
       },
     });
-
-    // Save the PDF
     doc.save(`${reportType}_report_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
   // Function to handle Excel export
   const handleExcelExport = () => {
-    if (!reportType || getFilteredData().length === 0) return;
-
-    const ws = XLSX.utils.json_to_sheet(getFilteredData());
+    if (!reportType || reportData.length === 0) return;
+    let exportData = [];
+    if (reportType === 'Certificates Issued Report') {
+      exportData = reportData.map(row => ({
+        'Certificate Number': row.certificateNumber || '',
+        'First Name': row.firstNameEn || '',
+        'Last Name': row.lastNameEn || '',
+        'Land Use Type': row.landUseType || '',
+        'Land Size': row.landSize || '',
+        'Unit': row.sizeUnit || '',
+        'Region': row.regionEn || '',
+        'Date Issued': row.createdAt ? new Date(row.createdAt).toLocaleDateString() : '',
+        'Status': row.status || ''
+      }));
+    } else if (reportType === 'Parcel Management Report') {
+      exportData = reportData.map(row => ({
+        'Parcel Number': row.parcelNumber || '',
+        'Region': row.landLocation?.regionEn || row.regionEn || '',
+        'Land Size': row.landSize ?? row.size ?? '',
+        'Unit': row.sizeUnit || '',
+        'Land Use Type': row.landUseType || '',
+        'Date Registered': row.createdAt ? new Date(row.createdAt).toLocaleDateString() : '',
+        'Status': row.status || ''
+      }));
+    } else if (reportType === 'Land Registration Report') {
+      exportData = reportData.map(row => ({
+        'Certificate Number': row.certificateNumber || '',
+        'First Name': row.firstNameEn || '',
+        'Last Name': row.lastNameEn || '',
+        'Land Use Type': row.landUseType || '',
+        'Land Size': row.landSize || '',
+        'Unit': row.sizeUnit || '',
+        'Region': row.regionEn || '',
+        'Date Registered': row.createdAt ? new Date(row.createdAt).toLocaleDateString() : '',
+        'Status': row.status || ''
+      }));
+    }
+    const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Report');
-    
-    // Save the Excel file
     XLSX.writeFile(
       wb,
       `${reportType}_report_${new Date().toISOString().split('T')[0]}.xlsx`
@@ -270,28 +246,100 @@ const GenerateReport = () => {
   // Component for print layout
   const PrintComponent = React.forwardRef((props, ref) => (
     <div ref={ref} style={{ padding: '20px' }}>
-      <h2>{reportTypes.find(t => t.value === reportType)?.label || 'Report'}</h2>
+      <h2>{reportTitle || reportType || 'Report'}</h2>
       {dateRange.startDate && dateRange.endDate && (
         <p>Period: {dateRange.startDate} to {dateRange.endDate}</p>
       )}
       <Table>
         <TableHead>
           <TableRow>
-            <TableCell>Date</TableCell>
-            <TableCell>Reference</TableCell>
-            <TableCell>Type</TableCell>
-            <TableCell>Details</TableCell>
-            <TableCell>Status</TableCell>
+            {/* Dynamically render columns based on report type */}
+            {reportType === 'Certificates Issued Report' && (
+              <>
+                <TableCell>Certificate Number</TableCell>
+                <TableCell>First Name</TableCell>
+                <TableCell>Last Name</TableCell>
+                <TableCell>Land Use Type</TableCell>
+                <TableCell>Land Size</TableCell>
+                <TableCell>Unit</TableCell>
+                <TableCell>Region</TableCell>
+                <TableCell>Date Issued</TableCell>
+                <TableCell>Status</TableCell>
+              </>
+            )}
+            {reportType === 'Parcel Management Report' && (
+              <>
+                <TableCell>Parcel Number</TableCell>
+                <TableCell>Region</TableCell>
+                <TableCell>Land Size</TableCell>
+                <TableCell>Unit</TableCell>
+                <TableCell>Land Use Type</TableCell>
+                <TableCell>Date Registered</TableCell>
+                <TableCell>Status</TableCell>
+              </>
+            )}
+            {reportType === 'Land Registration Report' && (
+              <>
+                <TableCell>Certificate Number</TableCell>
+                <TableCell>First Name</TableCell>
+                <TableCell>Last Name</TableCell>
+                <TableCell>Land Use Type</TableCell>
+                <TableCell>Land Size</TableCell>
+                <TableCell>Unit</TableCell>
+                <TableCell>Region</TableCell>
+                <TableCell>Date Registered</TableCell>
+                <TableCell>Status</TableCell>
+              </>
+            )}
           </TableRow>
         </TableHead>
         <TableBody>
-          {getFilteredData().map((row) => (
-            <TableRow key={row.id}>
-              <TableCell>{row.date}</TableCell>
-              <TableCell>{row.reference}</TableCell>
-              <TableCell>{row.type}</TableCell>
-              <TableCell>{row.details}</TableCell>
-              <TableCell>{row.status}</TableCell>
+          {reportData.map((row, idx) => (
+            <TableRow key={row._id || row.certificateNumber || row.parcelNumber || idx}>
+              {/* Render row data based on report type */}
+              {reportType === 'Certificates Issued Report' && (
+                <>
+                  <TableCell>{row.certificateNumber}</TableCell>
+                  <TableCell>{row.firstNameEn}</TableCell>
+                  <TableCell>{row.lastNameEn}</TableCell>
+                  <TableCell>{row.landUseType}</TableCell>
+                  <TableCell>{row.landSize}</TableCell>
+                  <TableCell>{row.sizeUnit}</TableCell>
+                  <TableCell>{row.regionEn}</TableCell>
+                  <TableCell>{row.createdAt ? new Date(row.createdAt).toLocaleDateString() : ''}</TableCell>
+                  <TableCell>
+                    <Chip label={row.status} color={getStatusColor(row.status)} size="small" />
+                  </TableCell>
+                </>
+              )}
+              {reportType === 'Parcel Management Report' && (
+                <>
+                  <TableCell>{row.parcelNumber}</TableCell>
+                  <TableCell>{row.landLocation?.regionEn || row.regionEn || ''}</TableCell>
+                  <TableCell>{row.landSize ?? row.size ?? ''}</TableCell>
+                  <TableCell>{row.sizeUnit}</TableCell>
+                  <TableCell>{row.landUseType}</TableCell>
+                  <TableCell>{row.createdAt ? new Date(row.createdAt).toLocaleDateString() : ''}</TableCell>
+                  <TableCell>
+                    <Chip label={row.status} color={getStatusColor(row.status)} size="small" />
+                  </TableCell>
+                </>
+              )}
+              {reportType === 'Land Registration Report' && (
+                <>
+                  <TableCell>{row.certificateNumber}</TableCell>
+                  <TableCell>{row.firstNameEn}</TableCell>
+                  <TableCell>{row.lastNameEn}</TableCell>
+                  <TableCell>{row.landUseType}</TableCell>
+                  <TableCell>{row.landSize}</TableCell>
+                  <TableCell>{row.sizeUnit}</TableCell>
+                  <TableCell>{row.regionEn}</TableCell>
+                  <TableCell>{row.createdAt ? new Date(row.createdAt).toLocaleDateString() : ''}</TableCell>
+                  <TableCell>
+                    <Chip label={row.status} color={getStatusColor(row.status)} size="small" />
+                  </TableCell>
+                </>
+              )}
             </TableRow>
           ))}
         </TableBody>
@@ -374,21 +422,21 @@ const GenerateReport = () => {
                   <IconButton 
                     title="Print Report" 
                     onClick={handlePrint}
-                    disabled={!reportType || getFilteredData().length === 0}
+                    disabled={!reportType || reportData.length === 0}
                   >
                     <PrintIcon />
                   </IconButton>
                   <IconButton 
                     title="Download PDF" 
                     onClick={handlePdfExport}
-                    disabled={!reportType || getFilteredData().length === 0}
+                    disabled={!reportType || reportData.length === 0}
                   >
                     <PdfIcon />
                   </IconButton>
                   <IconButton 
                     title="Download Excel" 
                     onClick={handleExcelExport}
-                    disabled={!reportType || getFilteredData().length === 0}
+                    disabled={!reportType || reportData.length === 0}
                   >
                     <DownloadIcon />
                   </IconButton>
@@ -405,32 +453,98 @@ const GenerateReport = () => {
                     <Table>
                       <TableHead>
                         <TableRow>
-                          <TableCell>Date</TableCell>
-                          <TableCell>Reference</TableCell>
-                          <TableCell>Type</TableCell>
-                          <TableCell>Details</TableCell>
-                          <TableCell>Status</TableCell>
+                          {/* Dynamically render columns based on report type */}
+                          {reportType === 'Certificates Issued Report' && (
+                            <>
+                              <TableCell>Certificate Number</TableCell>
+                              <TableCell>First Name</TableCell>
+                              <TableCell>Last Name</TableCell>
+                              <TableCell>Land Use Type</TableCell>
+                              <TableCell>Land Size</TableCell>
+                              <TableCell>Unit</TableCell>
+                              <TableCell>Region</TableCell>
+                              <TableCell>Date Issued</TableCell>
+                              <TableCell>Status</TableCell>
+                            </>
+                          )}
+                          {reportType === 'Parcel Management Report' && (
+                            <>
+                              <TableCell>Parcel Number</TableCell>
+                              <TableCell>Region</TableCell>
+                              <TableCell>Land Size</TableCell>
+                              <TableCell>Unit</TableCell>
+                              <TableCell>Land Use Type</TableCell>
+                              <TableCell>Date Registered</TableCell>
+                              <TableCell>Status</TableCell>
+                            </>
+                          )}
+                          {reportType === 'Land Registration Report' && (
+                            <>
+                              <TableCell>Certificate Number</TableCell>
+                              <TableCell>First Name</TableCell>
+                              <TableCell>Last Name</TableCell>
+                              <TableCell>Land Use Type</TableCell>
+                              <TableCell>Land Size</TableCell>
+                              <TableCell>Unit</TableCell>
+                              <TableCell>Region</TableCell>
+                              <TableCell>Date Registered</TableCell>
+                              <TableCell>Status</TableCell>
+                            </>
+                          )}
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {reportType && getFilteredData().map((row) => (
-                          <TableRow key={row.id}>
-                            <TableCell>{row.date}</TableCell>
-                            <TableCell>{row.reference}</TableCell>
-                            <TableCell>{row.type}</TableCell>
-                            <TableCell>{row.details}</TableCell>
-                            <TableCell>
-                              <Chip 
-                                label={row.status}
-                                color={getStatusColor(row.status)}
-                                size="small"
-                              />
-                            </TableCell>
+                        {reportType && reportData.map((row, idx) => (
+                          <TableRow key={row._id || row.certificateNumber || row.parcelNumber || idx}>
+                            {/* Render row data based on report type */}
+                            {reportType === 'Certificates Issued Report' && (
+                              <>
+                                <TableCell>{row.certificateNumber}</TableCell>
+                                <TableCell>{row.firstNameEn}</TableCell>
+                                <TableCell>{row.lastNameEn}</TableCell>
+                                <TableCell>{row.landUseType}</TableCell>
+                                <TableCell>{row.landSize}</TableCell>
+                                <TableCell>{row.sizeUnit}</TableCell>
+                                <TableCell>{row.regionEn}</TableCell>
+                                <TableCell>{row.createdAt ? new Date(row.createdAt).toLocaleDateString() : ''}</TableCell>
+                                <TableCell>
+                                  <Chip label={row.status} color={getStatusColor(row.status)} size="small" />
+                                </TableCell>
+                              </>
+                            )}
+                            {reportType === 'Parcel Management Report' && (
+                              <>
+                                <TableCell>{row.parcelNumber}</TableCell>
+                                <TableCell>{row.landLocation?.regionEn || row.regionEn || ''}</TableCell>
+                                <TableCell>{row.landSize ?? row.size ?? ''}</TableCell>
+                                <TableCell>{row.sizeUnit}</TableCell>
+                                <TableCell>{row.landUseType}</TableCell>
+                                <TableCell>{row.createdAt ? new Date(row.createdAt).toLocaleDateString() : ''}</TableCell>
+                                <TableCell>
+                                  <Chip label={row.status} color={getStatusColor(row.status)} size="small" />
+                                </TableCell>
+                              </>
+                            )}
+                            {reportType === 'Land Registration Report' && (
+                              <>
+                                <TableCell>{row.certificateNumber}</TableCell>
+                                <TableCell>{row.firstNameEn}</TableCell>
+                                <TableCell>{row.lastNameEn}</TableCell>
+                                <TableCell>{row.landUseType}</TableCell>
+                                <TableCell>{row.landSize}</TableCell>
+                                <TableCell>{row.sizeUnit}</TableCell>
+                                <TableCell>{row.regionEn}</TableCell>
+                                <TableCell>{row.createdAt ? new Date(row.createdAt).toLocaleDateString() : ''}</TableCell>
+                                <TableCell>
+                                  <Chip label={row.status} color={getStatusColor(row.status)} size="small" />
+                                </TableCell>
+                              </>
+                            )}
                           </TableRow>
                         ))}
-                        {(!reportType || getFilteredData().length === 0) && (
+                        {(!reportType || reportData.length === 0) && (
                           <TableRow>
-                            <TableCell colSpan={5} align="center">
+                            <TableCell colSpan={9} align="center">
                               <Typography color="textSecondary">
                                 {!reportType 
                                   ? 'Select a report type to view data'
@@ -445,10 +559,10 @@ const GenerateReport = () => {
                 </div>
               )}
 
-              {reportType && getFilteredData().length > 0 && (
+              {reportType && reportData.length > 0 && (
                 <Box sx={{ mt: 2, textAlign: 'right' }}>
                   <Typography variant="body2" color="textSecondary">
-                    Total Records: {getFilteredData().length}
+                    Total Records: {reportData.length}
                   </Typography>
                 </Box>
               )}
@@ -465,4 +579,4 @@ const GenerateReport = () => {
   );
 };
 
-export default GenerateReport; 
+export default GenerateReport;

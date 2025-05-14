@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import {
   Box,
   Grid,
@@ -33,6 +33,8 @@ import {
   ResponsiveContainer,
   Cell
 } from 'recharts';
+import AuthContext from '../../context/AuthContext';
+import axios from 'axios';
 
 const StatCard = ({ title, value, icon, color }) => (
   <Card sx={{ height: '100%' }}>
@@ -50,77 +52,70 @@ const StatCard = ({ title, value, icon, color }) => (
   </Card>
 );
 
-// Sample data for charts
-const monthlyData = [
-  { month: 'Jan', registrations: 45, certificates: 38, parcels: 25 },
-  { month: 'Feb', registrations: 52, certificates: 42, parcels: 30 },
-  { month: 'Mar', registrations: 48, certificates: 35, parcels: 28 },
-  { month: 'Apr', registrations: 60, certificates: 50, parcels: 35 },
-  { month: 'May', registrations: 55, certificates: 45, parcels: 32 },
-  { month: 'Jun', registrations: 65, certificates: 55, parcels: 40 },
-];
-
-const parcelTypeData = [
-  { name: 'Residential', value: 45, color: '#0088FE' },
-  { name: 'Commercial', value: 30, color: '#00C49F' },
-  { name: 'Agricultural', value: 15, color: '#FFBB28' },
-  { name: 'Industrial', value: 10, color: '#FF8042' },
-];
-
-const registrationStatusData = [
-  { name: 'Completed', value: 150 },
-  { name: 'Pending', value: 30 },
-  { name: 'Under Review', value: 20 },
-];
-
 const Dashboard = () => {
-  // Sample data for stat cards
-  const stats = {
-    totalCertifications: 150,
-    activeParcels: 200,
-    registeredUsers: 50,
-    monthlyRegistrations: 25,
-  };
+  // State for stats and charts
+  const [stats, setStats] = useState({
+    totalCertifications: 0,
+    activeParcels: 0,
+    registeredUsers: 0,
+    monthlyRegistrations: 0,
+  });
+  const [monthlyData, setMonthlyData] = useState([]);
+  const [parcelTypeData, setParcelTypeData] = useState([]);
+  const [registrationStatusData, setRegistrationStatusData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const { user } = useContext(AuthContext);
 
-  // Sample trend data
-  const trendStats = [
-    {
-      title: "Registration Growth",
-      value: "+25%",
-      subtext: "vs last month",
-      trend: "up",
-      color: "#4caf50",
-      details: "150 new registrations",
-      icon: <ShowChart />
-    },
-    {
-      title: "Certificate Processing Time",
-      value: "-15%",
-      subtext: "processing time",
-      trend: "down",
-      color: "#2196f3",
-      details: "Average 3 days",
-      icon: <Timeline />
-    },
-    {
-      title: "Parcel Verification Rate",
-      value: "98%",
-      subtext: "success rate",
-      trend: "up",
-      color: "#ff9800",
-      details: "High accuracy",
-      icon: <Assessment />
-    },
-    {
-      title: "Digital Records",
-      value: "12TB",
-      subtext: "data stored",
-      trend: "up",
-      color: "#9c27b0",
-      details: "100% backed up",
-      icon: <PieChartIcon />
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+    // Get JWT token from AuthContext or localStorage
+    let token = null;
+    if (user && user.token) {
+      token = user.token;
+    } else {
+      token = localStorage.getItem('token');
     }
-  ];
+    const headers = token
+      ? { 'Authorization': `Bearer ${token}` }
+      : {};
+    // Fetch all dashboard data in parallel with Authorization header
+    Promise.all([
+      fetch('/api/dashboard/admin', { headers, credentials: 'include' }).then(res => res.json()),
+      fetch('/api/dashboard/monthly-activity', { headers, credentials: 'include' }).then(res => res.json()),
+      fetch('/api/dashboard/parcel-types', { headers, credentials: 'include' }).then(res => res.json()),
+    ])
+      .then(([adminData, monthly, parcelTypes]) => {
+        // Stat cards
+        setStats({
+          totalCertifications: adminData.totalCertifications || adminData.totalCertificates || 0,
+          activeParcels: adminData.activeParcels || adminData.totalParcels || 0,
+          registeredUsers: adminData.registeredUsers || adminData.totalUsers || 0,
+          monthlyRegistrations: adminData.monthlyRegistrations || 0,
+        });
+        // Monthly trends
+        setMonthlyData(Array.isArray(monthly) ? monthly : []);
+        // Parcel type distribution
+        setParcelTypeData(Array.isArray(parcelTypes) ? parcelTypes : []);
+        // Registration status (if available)
+        if (Array.isArray(adminData.registrationStatus)) {
+          setRegistrationStatusData(
+            adminData.registrationStatus.map(item => ({
+              name: item._id || 'Unknown',
+              value: item.count || 0,
+            }))
+          );
+        } else {
+          setRegistrationStatusData([]);
+        }
+        setLoading(false);
+      })
+      .catch(err => {
+        setError('Failed to load dashboard data.');
+        setLoading(false);
+      });
+  }, [user]);
 
   // Custom render for pie chart labels
   const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
@@ -142,9 +137,23 @@ const Dashboard = () => {
     );
   };
 
+  if (loading) {
+    return (
+      <Box sx={{ p: 4, textAlign: 'center' }}>
+        <Typography variant="h6">Loading dashboard...</Typography>
+      </Box>
+    );
+  }
+  if (error) {
+    return (
+      <Box sx={{ p: 4, textAlign: 'center' }}>
+        <Typography color="error" variant="h6">{error}</Typography>
+      </Box>
+    );
+  }
+
   return (
     <Box>
-
       <Grid container spacing={3}>
         {/* Statistics Cards */}
         <Grid item xs={12} sm={6} md={3}>
@@ -214,126 +223,6 @@ const Dashboard = () => {
               </LineChart>
             </ResponsiveContainer>
           </Paper>
-
-          {/* New Trend Statistics Section */}
-          <Box sx={{ mt: 3 }}>
-            <Grid container spacing={3}>
-              {trendStats.map((stat, index) => (
-                <Grid item xs={12} sm={6} md={3} key={index}>
-                  <Paper
-                    sx={{
-                      p: 2,
-                      height: '100%',
-                      background: `linear-gradient(135deg, ${stat.color}15, ${stat.color}05)`,
-                      border: `1px solid ${stat.color}30`,
-                      transition: 'transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out',
-                      '&:hover': {
-                        transform: 'translateY(-5px)',
-                        boxShadow: `0 4px 20px ${stat.color}30`,
-                      }
-                    }}
-                  >
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                      <Box
-                        sx={{
-                          p: 1,
-                          borderRadius: 1,
-                          bgcolor: `${stat.color}15`,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          mr: 2
-                        }}
-                      >
-                        {React.cloneElement(stat.icon, { 
-                          sx: { color: stat.color, fontSize: 24 } 
-                        })}
-                      </Box>
-                      <Typography 
-                        variant="subtitle2" 
-                        color="textSecondary"
-                        sx={{ fontWeight: 500 }}
-                      >
-                        {stat.title}
-                      </Typography>
-                    </Box>
-
-                    <Box sx={{ display: 'flex', alignItems: 'baseline', mb: 1 }}>
-                      <Typography 
-                        variant="h4" 
-                        component="div"
-                        sx={{ 
-                          fontWeight: 'bold',
-                          color: stat.color
-                        }}
-                      >
-                        {stat.value}
-                      </Typography>
-                      <Box 
-                        sx={{ 
-                          display: 'flex', 
-                          alignItems: 'center',
-                          ml: 1
-                        }}
-                      >
-                        {stat.trend === 'up' ? (
-                          <TrendingUp sx={{ color: '#4caf50', fontSize: 20 }} />
-                        ) : (
-                          <TrendingDown sx={{ color: '#f44336', fontSize: 20 }} />
-                        )}
-                        <Typography 
-                          variant="caption" 
-                          sx={{ 
-                            ml: 0.5,
-                            color: stat.trend === 'up' ? '#4caf50' : '#f44336'
-                          }}
-                        >
-                          {stat.subtext}
-                        </Typography>
-                      </Box>
-                    </Box>
-
-                    <Typography 
-                      variant="body2" 
-                      color="textSecondary"
-                      sx={{ 
-                        mt: 1,
-                        fontSize: '0.75rem',
-                        opacity: 0.8
-                      }}
-                    >
-                      {stat.details}
-                    </Typography>
-
-                    {/* Animated Progress Bar */}
-                    <Box
-                      sx={{
-                        mt: 2,
-                        height: 4,
-                        bgcolor: `${stat.color}20`,
-                        borderRadius: 2,
-                        overflow: 'hidden'
-                      }}
-                    >
-                      <Box
-                        sx={{
-                          width: '60%',
-                          height: '100%',
-                          bgcolor: stat.color,
-                          animation: 'pulse 2s infinite',
-                          '@keyframes pulse': {
-                            '0%': { opacity: 0.6 },
-                            '50%': { opacity: 1 },
-                            '100%': { opacity: 0.6 }
-                          }
-                        }}
-                      />
-                    </Box>
-                  </Paper>
-                </Grid>
-              ))}
-            </Grid>
-          </Box>
         </Grid>
 
         {/* Distribution Charts */}
@@ -359,7 +248,7 @@ const Dashboard = () => {
                     {parcelTypeData.map((entry, index) => (
                       <Cell 
                         key={`cell-${index}`} 
-                        fill={entry.color}
+                        fill={entry.color || '#1976d2'}
                       />
                     ))}
                   </Pie>
@@ -368,7 +257,6 @@ const Dashboard = () => {
                   />
                 </PieChart>
               </ResponsiveContainer>
-              
               {/* Custom Legend */}
               <Box sx={{ 
                 display: 'grid', 
@@ -389,7 +277,7 @@ const Dashboard = () => {
                       sx={{ 
                         width: 12, 
                         height: 12, 
-                        backgroundColor: entry.color,
+                        backgroundColor: entry.color || '#1976d2',
                         borderRadius: '50%'
                       }} 
                     />
@@ -401,7 +289,6 @@ const Dashboard = () => {
               </Box>
             </Box>
           </Paper>
-
           {/* Registration Status Chart */}
           <Box sx={{ mt: 3 }}>
             <Paper sx={{ p: 3, height: '400px' }}>

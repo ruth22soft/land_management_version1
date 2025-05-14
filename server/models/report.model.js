@@ -21,14 +21,15 @@ import mongoose from "mongoose";
  * @property {string} landDescEn
  * @property {number} landSize
  * @property {string} sizeUnit
+ * @property {string} region
  * @property {Date} createdAt
  */
 
 /**
  * @typedef {Object} IParcelReport
  * @property {string} parcelNumber
- * @property {string} location
- * @property {number} size
+ * @property {string} region
+ * @property {number} landSize
  * @property {string} sizeUnit
  * @property {string} ownerName
  * @property {string} landUseType
@@ -41,7 +42,7 @@ const reportSchema = new mongoose.Schema(
     title: { type: String, required: true },
     type: {
       type: String,
-      enum: ["Certificates Issued Report", "Parcel Management Report"],
+      enum: ["Certificates Issued Report", "Parcel Management Report", "Land Registration Report"],
       required: true,
     },
     generatedAt: { type: Date, default: Date.now },
