@@ -594,45 +594,38 @@ const ParcelManagement = () => {
   }, []);
 
   const handleGenerateCertificate = (parcel) => {
-    console.log('Parcel Data:', parcel); // Debugging log
-
     // Generate certificate number if not exists
     const certificateNumber = parcel.certificateNumber || `LRMS-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
     
     // Prepare complete certificate data with proper image handling
     const certificateData = {
+      parcelId: parcel._id, // Always include parcelId for backend
       certificateNumber,
-      // ownerNameAm: `${parcel.ownerNameAm?.firstName || ''} ${parcel.ownerNameAm?.lastName || ''}`.trim(),
       ownerNameEn: `${parcel.ownerNameEn?.firstName || ''} ${parcel.ownerNameEn?.lastName || ''}`.trim(),
       nationalId: parcel.nationalId || 'N/A',
       landLocation: {
-        region: parcel.landLocation?.regionEn || 'N/A', // Use English region
-        zone: parcel.landLocation?.zoneEn || 'N/A', // Use English zone
-        woreda: parcel.landLocation?.woredaEn || 'N/A', // Use English woreda
-        kebele: parcel.landLocation?.kebeleEn || 'N/A', // Use English kebele
-        block: parcel.landLocation?.blockEn || 'N/A' // Use English block
+        region: parcel.landLocation?.regionEn || 'N/A',
+        zone: parcel.landLocation?.zoneEn || 'N/A',
+        woreda: parcel.landLocation?.woredaEn || 'N/A',
+        kebele: parcel.landLocation?.kebeleEn || 'N/A',
+        block: parcel.landLocation?.blockEn || 'N/A'
       },
-      landSize: parcel.landSize,
+      landSize: Number(parcel.landSize), // Ensure landSize is a number
       sizeUnit: 'square meters',
       landUseType: parcel.landUseType,
       boundaries: parcel.boundaries,
-      // legalRights: LEGAL_RIGHTS,
-      // termsAndConditions: TERMS_AND_CONDITIONS,
       issuingAuthority: parcel.issuingAuthority,
       issuingAuthorityAm: parcel.issuingAuthorityAm,
       dateOfIssuance: parcel.dateOfIssuance || new Date().toISOString().split('T')[0],
-      // Add image properties
       ownerPhoto: parcel.ownerPhoto,
       officerSignature: parcel.officerSignature,
       logo: parcel.logo
     };
-    console.log('Generated Certificate Data:', certificateData); // Debugging log
-
 
     // Update parcel with certificate number if needed
     if (!parcel.certificateNumber) {
       const updatedParcels = parcels.map(p => 
-        p.id === parcel.id ? { ...p, certificateNumber } : p
+        p._id === parcel._id ? { ...p, certificateNumber } : p
       );
       setParcels(updatedParcels);
     }

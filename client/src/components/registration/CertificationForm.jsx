@@ -77,16 +77,37 @@ const fetchParcelByNumber = async (parcelNumber) => {
     }
 };
 
+// Helper to append nested data to FormData
+const appendFormData = (formData, data, parentKey = '') => {
+    if (data === null || data === undefined) return;
+    if (typeof data === 'object' && !(data instanceof File)) {
+        if (Array.isArray(data)) {
+            data.forEach((item, idx) => {
+                appendFormData(formData, item, `${parentKey}[${idx}]`);
+            });
+        } else {
+            Object.entries(data).forEach(([key, value]) => {
+                const newKey = parentKey ? `${parentKey}.${key}` : key;
+                appendFormData(formData, value, newKey);
+            });
+        }
+    } else {
+        formData.append(parentKey, data);
+    }
+};
+
 // Submit certificate registration to backend
 const submitCertificate = async (data) => {
     const token = localStorage.getItem('token');
+    const formData = new FormData();
+    appendFormData(formData, data);
     const response = await fetch('/api/certificates', {
         method: 'POST',
-        headers: { 
-            'Content-Type': 'application/json',
-              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-         },
-        body: JSON.stringify(data),
+        headers: {
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            // Do NOT set 'Content-Type' header when using FormData
+        },
+        body: formData,
     });
     const contentType = response.headers.get('content-type');
     if (!response.ok) {
@@ -1720,14 +1741,25 @@ const CertificationForm = () => {
                 issuingAuthorityAm: formData.issuingAuthorityAm,
                 issuingAuthorityEn: formData.issuingAuthority,
                 expiryDate: formData.expirationDate,
-                // Add file uploads and signatures as needed
-                status: "approved", // Set status to approved
+                status: "approved",
+                // ...add any other required fields
             };
             await submitCertificate(payload);
-            // Optionally show PDF preview here (if you have a modal or PDF component)
-            // After viewing/generating the PDF, navigate to certificate history
-            navigate('/certificate-history');
+            // Check if the user is still authenticated after submission
+            const token = localStorage.getItem('token');
+            if (!token) {
+                alert('Your session has expired. Please log in again.');
+                //navigate('/login', { replace: true });
+                return;
+            }
+            alert('Certificate registered successfully!');
+            navigate('/certificate-history', { replace: true }); // Navigate after success
         } catch (err) {
+            if (err.message && (err.message.toLowerCase().includes('unauthorized') || err.message.toLowerCase().includes('token'))){
+                alert('Your session has expired or you are not authorized. Please log in again.');
+               // navigate('/login', { replace: true });
+                return;
+            }
             setErrors({ submit: err.message });
             alert(err.message || 'An error occurred while submitting the form.');
         }
@@ -2005,11 +2037,27 @@ const CertificationForm = () => {
                         en: 'Phone number is required',
                         am: 'ስልክ ቁጥር ያስፈልጋል'
                     };
-                } else if (!/^\d{9,10}$/.test(formData.phone.replace(/\D/g, ''))) {
-                    errors.phone = {
-                        en: 'Phone number must be 9-10 digits',
-                        am: 'ስልክ ቁጥር 9-10 አሃዞች መሆን አለበት'
-                    };
+                } else {
+                    // Remove non-digit characters
+                    const digits = formData.phone.replace(/\D/g, '');
+                    // Accept 10 digits (with leading 0) or 9 digits (without leading 0)
+                   
+                    if (!((digits.length === 10 && digits.startsWith('0')) || (digits.length === 9 && !digits.startsWith('0')))) {
+                        errors.phone = {
+                            en: 'Phone number must be 9 or 10 digits and start with 0 if 10 digits',
+                            am: 'ስልክ ቁጥር 9 ወይም 10 አሃዞች መሆን አለበት፣ 10 አሃዝ ከሆነ በ0 መጀመር አለበት'
+                        };
+                    }
+                }
+                
+                // Phone number validation (Ethiopian standard: 9 or 10 digits, allow leading 0)
+                if (formData.phone) {
+                    // Remove non-digit characters
+                    const digits = formData.phone.replace(/\D/g, '');
+                    // Accept 10 digits (with leading 0) or 9 digits (without leading 0)
+                    if (!((digits.length === 10 && digits.startsWith('0')) || (digits.length === 9 && !digits.startsWith('0')))) {
+                        errors.phone = 'Phone number must be 9-10 digits, ስልክ ቁጥር 9-10 አሃዞች መሆን አለበት';
+                    }
                 }
                 
                 // Validate address (English)

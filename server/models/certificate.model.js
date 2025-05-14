@@ -80,7 +80,7 @@ const certificateSchema = new mongoose.Schema(
     landLocation: landLocationSchema,
     // Land Details
     landDescription: landDescriptionSchema,
-    landSize: String,
+    landSize: { type: Number },
     sizeUnit: String,
     landUseType: String,
     landUseTypeAm: String,

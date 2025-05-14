@@ -77,7 +77,7 @@ export const createCertificate = async (req, res) => {
         en: parcel.landDescription?.en || '',
         am: parcel.landDescription?.am || '',
       },
-      landSize: body.landSize || parcel.landSize || '',
+      landSize: body.landSize !== undefined ? Number(body.landSize) : (parcel.landSize !== undefined ? Number(parcel.landSize) : undefined),
       sizeUnit: body.sizeUnit || parcel.sizeUnit || '',
       landUseType: body.landUseType || parcel.landUseType || '',
       landUseTypeAm: body.landUseTypeAm || '',
@@ -112,6 +112,7 @@ export const createCertificate = async (req, res) => {
       message: "Certificate created successfully",
     });
   } catch (error) {
+    console.error(error); // Print full error to terminal
     res.status(500).json({
       success: false,
       message: "Error creating certificate",
