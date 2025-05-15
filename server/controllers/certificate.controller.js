@@ -23,15 +23,62 @@ export const createCertificate = async (req, res) => {
 
     // Generate QR code
     const qrCode = await generateQRCode(certificateNumber);
-    const documentPaths = files ? files.map((file) => file.path) : [];
 
-    // Map children to match model
-    const children = (body.children || []).map(child => ({
-      name: child.name || '',
-      nameAm: child.nameAm || '',
-      age: child.age ? Number(child.age) : undefined,
-      gender: child.gender || '',
-    }));
+    // Get file paths from req.files
+    const landPhoto = req.files?.landPhoto?.[0]?.path || null;
+    const boundaryPhoto = req.files?.boundaryPhoto?.[0]?.path || null;
+    const ownerPhoto = req.files?.ownerPhoto?.[0]?.path || null;
+    const landPlanImage = req.files?.landPlanImage?.[0]?.path || null;
+
+    // Parse landLocation if it's a string
+    let landLocation = body.landLocation;
+    if (typeof landLocation === 'string') {
+      try {
+        landLocation = JSON.parse(landLocation);
+      } catch (e) {
+        landLocation = undefined;
+      }
+    }
+
+    // Parse landDescription if it's a string
+    let landDescription = body.landDescription;
+    if (typeof landDescription === 'string') {
+      try {
+        landDescription = JSON.parse(landDescription);
+      } catch (e) {
+        landDescription = undefined;
+      }
+    }
+
+    // Parse legalRights if it's a string
+    let legalRights = body.legalRights;
+    if (typeof legalRights === 'string') {
+      try {
+        legalRights = JSON.parse(legalRights);
+      } catch (e) {
+        legalRights = { en: '', am: '' };
+      }
+    }
+
+    // Parse termsAndConditions if it's a string
+    let termsAndConditions = body.termsAndConditions;
+    if (typeof termsAndConditions === 'string') {
+      try {
+        termsAndConditions = JSON.parse(termsAndConditions);
+      } catch (e) {
+        termsAndConditions = { en: '', am: '' };
+      }
+    }
+
+    // Parse signatures if it's a string
+    let signatures = body.signatures;
+    if (typeof signatures === 'string') {
+      try {
+        signatures = JSON.parse(signatures);
+      } catch (e) {
+        signatures = { owner: null, registrationOfficer: null };
+      }
+    }
 
     // Prepare certificate data, mapping all frontend fields to model
     const certificateData = {
@@ -57,10 +104,8 @@ export const createCertificate = async (req, res) => {
       motherName: body.motherName || '',
       motherNameAm: body.motherNameAm || '',
       maritalStatus: body.maritalStatus || '',
-      // Children
-      children,
       // Land Location (nested object)
-      landLocation: body.landLocation || {
+      landLocation: landLocation || {
         region: parcel.landLocation?.regionEn || '',
         regionAm: parcel.landLocation?.regionAm || '',
         zone: parcel.landLocation?.zoneEn || '',
@@ -73,7 +118,7 @@ export const createCertificate = async (req, res) => {
         blockAm: parcel.landLocation?.blockAm || '',
       },
       // Land Details
-      landDescription: body.landDescription || {
+      landDescription: landDescription || {
         en: parcel.landDescription?.en || '',
         am: parcel.landDescription?.am || '',
       },
@@ -82,8 +127,8 @@ export const createCertificate = async (req, res) => {
       landUseType: body.landUseType || parcel.landUseType || '',
       landUseTypeAm: body.landUseTypeAm || '',
       // Legal Details
-      legalRights: body.legalRights || { en: '', am: '' },
-      termsAndConditions: body.termsAndConditions || { en: '', am: '' },
+      legalRights: legalRights || { en: '', am: '' },
+      termsAndConditions: termsAndConditions || { en: '', am: '' },
       // Certificate Details
       issuingAuthority: body.issuingAuthority || '',
       issuingAuthorityAm: body.issuingAuthorityAm || '',
@@ -92,12 +137,12 @@ export const createCertificate = async (req, res) => {
       additionalNotes: body.additionalNotes || '',
       additionalNotesAm: body.additionalNotesAm || '',
       // Photos and Signatures
-      landPhoto: body.landPhoto || null,
-      boundaryPhoto: body.boundaryPhoto || null,
-      ownerPhoto: body.ownerPhoto || null,
-      landPlanImage: body.landPlanImage || null,
-      signatures: body.signatures || { owner: null, registrationOfficer: null },
-      documentPaths,
+      landPhoto,
+      boundaryPhoto,
+      ownerPhoto,
+      landPlanImage,
+      signatures: signatures || { owner: null, registrationOfficer: null },
+      documentPaths: [],
       qrCode,
       createdBy: req.user?._id,
     };

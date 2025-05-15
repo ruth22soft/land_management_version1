@@ -100,12 +100,26 @@ const appendFormData = (formData, data, parentKey = '') => {
 const submitCertificate = async (data) => {
     const token = localStorage.getItem('token');
     const formData = new FormData();
-    appendFormData(formData, data);
+
+    Object.entries(data).forEach(([key, value]) => {
+        if (
+            key === 'landPhoto' ||
+            key === 'boundaryPhoto' ||
+            key === 'ownerPhoto' ||
+            key === 'landPlanImage'
+        ) {
+            if (value && value instanceof File) formData.append(key, value); // append as files
+        } else if (typeof value === 'object' && value !== null) {
+            formData.append(key, JSON.stringify(value));
+        } else {
+            formData.append(key, value);
+        }
+    });
+
     const response = await fetch('/api/certificates', {
         method: 'POST',
         headers: {
             ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-            // Do NOT set 'Content-Type' header when using FormData
         },
         body: formData,
     });
@@ -322,11 +336,6 @@ const CertificationForm = () => {
         motherName: '',
         motherNameAm: '',
         maritalStatus: '',
-        
-        // Children Information
-        children: [
-            { name: '', nameAm: '', age: '', gender: '' }
-        ],
         
         // Land Location
         landLocation: {
@@ -621,154 +630,163 @@ const CertificationForm = () => {
                     )}
                 </FormControl>
             </Grid>
+            </Grid>
+    
+    );
             
-            {/* Children Information */}
+            {/* Children Information 
             <Grid item xs={12}>
                 <Typography variant="subtitle1" gutterBottom>Children Information / የልጆች መረጃ</Typography>
             </Grid>
             
             {formData.children.map((child, index) => (
                 <React.Fragment key={index}>
-                    <Grid item xs={12}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                    <Grid item xs={12}> 
+                        {/* <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                             <Typography variant="subtitle2" sx={{ flexGrow: 1 }}>
-                                Child {index + 1}
+                                Child {index + 1} 
+
+
+
                             </Typography>
-                            {formData.children.length > 1 && (
-                                <Button 
-                                    size="small" 
-                                    color="error" 
-                                    onClick={() => handleRemoveChild(index)}
-                                >
-                                    Remove
-                                </Button>
-                            )}
-                        </Box>
-                    </Grid>
-                    <Grid item xs={12} md={3}>
-                        <TextField
-                            fullWidth
-                            name={`children[${index}].name`}
-                            label="Child Name (English)"
-                            value={child.name || ''}
-                            onChange={handleInputChange}
-                            error={Boolean(errors.children?.[index]?.name)}
-                            helperText={errors.children?.[index]?.name || ''}
-                        />
-                    </Grid>
-                    <Grid item xs={12} md={3}>
-                        <TextField
-                            fullWidth
-                            name={`children[${index}].nameAm`}
-                            label="Child Name (Amharic)"
-                            value={child.nameAm || ''}
-                            onChange={handleInputChange}
-                            error={Boolean(errors.children?.[index]?.nameAm)}
-                            helperText={errors.children?.[index]?.nameAm || ''}
-                            InputProps={{
-                                style: { fontFamily: 'Noto Sans Ethiopic' }
-                            }}
-                        />
-                    </Grid>
-                    <Grid item xs={12} md={3}>
-                        <TextField
-                            fullWidth
-                            name={`children[${index}].age`}
-                            label="Age"
-                            type="number"
-                            value={child.age || ''}
-                            onChange={handleInputChange}
-                            error={Boolean(errors.children?.[index]?.age)}
-                            helperText={errors.children?.[index]?.age || ''}
-                        />
-                    </Grid>
-                    <Grid item xs={12} md={3}>
-                        <FormControl fullWidth error={Boolean(errors.children?.[index]?.gender)}>
-                            <InputLabel>Gender</InputLabel>
-                            <Select
-                                name={`children[${index}].gender`}
-                                value={child.gender || ''}
-                                onChange={handleInputChange}
-                                label="Gender"
-                            >
-                                <MenuItem value="male">Male</MenuItem>
-                                <MenuItem value="female">Female</MenuItem>
-                                <MenuItem value="other">Other</MenuItem>
-                            </Select>
-                            {errors.children?.[index]?.gender && (
-                                <FormHelperText>{errors.children?.[index]?.gender}</FormHelperText>
-                            )}
-                        </FormControl>
-                    </Grid>
-                </React.Fragment>
-            ))}
-            
-            <Grid item xs={12}>
-                <Button 
-                    variant="contained" 
-                    color="primary"
-                    onClick={handleAddChild}
-                >
-                    Add Child
-                </Button>
-            </Grid>
-        </Grid>
-    );
+                            </Box> {formData.children.length > 1 && (
 
-    const handleAddChild = () => {
-        setFormData(prev => ({
-            ...prev,
-            children: [...prev.children, { name: '', nameAm: '', age: '', gender: '' }]
-        }));
-    };
 
-    const handleRemoveChild = (index) => {
-        setFormData(prev => {
-            const newChildren = [...prev.children];
+
+                    //             <Button 
+                    //                 size="small" 
+                    //                 color="error" 
+                    //                 onClick={() => handleRemoveChild(index)}
+                    //             >
+                    //                 Remove
+                    //             </Button>
+                    //         )}
+                    //     </Box>
+                    // </Grid>
+                    // <Grid item xs={12} md={3}>
+                    //     <TextField
+                    //         fullWidth
+                    //         name={`children[${index}].name`}
+                    //         label="Child Name (English)"
+                    //         value={child.name || ''}
+                    //         onChange={handleInputChange}
+                    //         error={Boolean(errors.children?.[index]?.name)}
+    //                         helperText={errors.children?.[index]?.name || ''}
+    //                     />
+    //                 </Grid>
+    //                 <Grid item xs={12} md={3}>
+    //                     <TextField
+    //                         fullWidth
+    //                         name={`children[${index}].nameAm`}
+    //                         label="Child Name (Amharic)"
+    //                         value={child.nameAm || ''}
+    //                         onChange={handleInputChange}
+    //                         error={Boolean(errors.children?.[index]?.nameAm)}
+    //                         helperText={errors.children?.[index]?.nameAm || ''}
+    //                         InputProps={{
+    //                             style: { fontFamily: 'Noto Sans Ethiopic' }
+    //                         }}
+    //                     />
+    //                 </Grid>
+    //                 <Grid item xs={12} md={3}>
+    //                     <TextField
+    //                         fullWidth
+    //                         name={`children[${index}].age`}
+    //                         label="Age"
+    //                         type="number"
+    //                         value={child.age || ''}
+    //                         onChange={handleInputChange}
+    //                         error={Boolean(errors.children?.[index]?.age)}
+    //                         helperText={errors.children?.[index]?.age || ''}
+    //                     />
+    //                 </Grid>
+    //                 <Grid item xs={12} md={3}>
+    //                     <FormControl fullWidth error={Boolean(errors.children?.[index]?.gender)}>
+    //                         <InputLabel>Gender</InputLabel>
+    //                         <Select
+    //                             name={`children[${index}].gender`}
+    //                             value={child.gender || ''}
+    //                             onChange={handleInputChange}
+    //                             label="Gender"
+    //                         >
+    //                             <MenuItem value="male">Male</MenuItem>
+    //                             <MenuItem value="female">Female</MenuItem>
+    //                             <MenuItem value="other">Other</MenuItem>
+    //                         </Select>
+    //                         {errors.children?.[index]?.gender && (
+    //                             <FormHelperText>{errors.children?.[index]?.gender}</FormHelperText>
+    //                         )}
+    //                     </FormControl>
+    //                 </Grid>
+    //             </React.Fragment>
+    //         ))}
             
-            // Always keep at least one child form
-            if (newChildren.length === 1) {
-                // Clear the only child form instead of removing it
-                newChildren[0] = { name: '', nameAm: '', age: '', gender: '' };
-            } else {
-                // Remove the specific child
-                newChildren.splice(index, 1);
-            }
+    //         <Grid item xs={12}>
+    //             <Button 
+    //                 variant="contained" 
+    //                 color="primary"
+    //                 onClick={handleAddChild}
+    //             >
+    //                 Add Child
+    //             </Button>
+    //         </Grid>
+    //     </Grid>
+    // );
+
+    // const handleAddChild = () => {
+    //     setFormData(prev => ({
+    //         ...prev,
+    //         children: [...prev.children, { name: '', nameAm: '', age: '', gender: '' }]
+    //     }));
+    // };
+
+    // const handleRemoveChild = (index) => {
+    //     setFormData(prev => {
+    //         const newChildren = [...prev.children];
             
-            return {
-                ...prev,
-                children: newChildren
-            };
-        });
+    //         // Always keep at least one child form
+    //         if (newChildren.length === 1) {
+    //             // Clear the only child form instead of removing it
+    //             newChildren[0] = { name: '', nameAm: '', age: '', gender: '' };
+    //         } else {
+    //             // Remove the specific child
+    //             newChildren.splice(index, 1);
+    //         }
+            
+    //         return {
+    //             ...prev,
+    //             children: newChildren
+    //         };
+    //     });
         
-        // Clear any errors for this child
-        setErrors(prev => {
-            if (!prev.children) return prev;
+    //     // Clear any errors for this child
+    //     setErrors(prev => {
+    //         if (!prev.children) return prev;
             
-            const newErrors = { ...prev };
+    //         const newErrors = { ...prev };
             
-            // Determine which fields to clear based on the current step
-            if (newErrors.children) {
-                // If we only have one child, just clear all child errors
-                if (newErrors.children.length <= 1) {
-                    delete newErrors.children;
-                } else {
-                    // Remove errors for the specific child
-                    const childrenErrors = [...newErrors.children];
-                    childrenErrors.splice(index, 1);
+    // //         // Determine which fields to clear based on the current step
+    // //         if (newErrors.children) {
+    // //             // If we only have one child, just clear all child errors
+    // //             if (newErrors.children.length <= 1) {
+    // //                 delete newErrors.children;
+    // //             } else {
+    // //                 // Remove errors for the specific child
+    // //                 const childrenErrors = [...newErrors.children];
+    // //                 childrenErrors.splice(index, 1);
                     
-                    if (childrenErrors.length === 0) {
-                        delete newErrors.children;
-                    } else {
-                        newErrors.children = childrenErrors;
-                    }
-                }
-            }
+    // //                 if (childrenErrors.length === 0) {
+    // //                     delete newErrors.children;
+    // //                 } else {
+    // //                     newErrors.children = childrenErrors;
+    // //                 }
+    // //             }
+    // //         }
             
-            return newErrors;
-        });
-    };
-
+    // //         return newErrors;
+    // //     });
+    // // };
+    */}
     const renderLandLocation = () => (
         <Grid container spacing={2}>
             {Object.entries(formData.landLocation).map(([key, value]) => {
@@ -1806,20 +1824,10 @@ const CertificationForm = () => {
     const handleFileChange = (event, field) => {
         const file = event.target.files[0];
         if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setFormData(prev => ({
-                    ...prev,
-                    [field]: reader.result
-                }));
-                
-                // Clear any error for this field if successful
-                setErrors(prev => ({
-                    ...prev,
-                    [field]: undefined
-                }));
-            };
-            reader.readAsDataURL(file);
+            setFormData(prev => ({
+                ...prev,
+                [field]: file // store the File object, not base64
+            }));
         }
     };
 

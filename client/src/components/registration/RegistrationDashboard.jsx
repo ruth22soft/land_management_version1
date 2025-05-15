@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Grid,
@@ -7,6 +7,7 @@ import {
   Typography,
   Paper,
   Button,
+  CircularProgress,
 } from '@mui/material';
 import {
   Description,
@@ -15,6 +16,7 @@ import {
   TrendingUp,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 const StatCard = ({ title, value, icon, color }) => (
   <Card sx={{ height: '100%' }}>
@@ -34,18 +36,83 @@ const StatCard = ({ title, value, icon, color }) => (
 
 const RegistrationDashboard = () => {
   const navigate = useNavigate();
-  
-  // Sample data - replace with actual data from your backend
-  const stats = {
-    pendingCertifications: 15,
-    completedCertifications: 85,
-    activeParcels: 120,
-    monthlyRegistrations: 25,
-  };
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    pendingParcels: 0,
+    completedCertifications: 0,
+    activeParcels: 0,
+    monthlyRegistrations: 0,
+  });
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          setError('Please log in to view the dashboard');
+          setLoading(false);
+          return;
+        }
+
+        const response = await axios.get('/api/dashboard/registration', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        setStats({
+          pendingParcels: response.data.pendingParcels || 0,
+          completedCertifications: response.data.completedCertifications || 0,
+          activeParcels: response.data.activeParcels || 0,
+          monthlyRegistrations: response.data.monthlyRegistrations || 0,
+        });
+      } catch (err) {
+        console.error('Error fetching dashboard data:', err);
+        if (err.response?.status === 401) {
+          setError('Your session has expired. Please log in again.');
+          // Optionally redirect to login page
+          // navigate('/login');
+        } else {
+          setError('Failed to load dashboard data');
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, [navigate]);
 
   const handleNavigate = (path) => {
     navigate(path);
   };
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Typography color="error">{error}</Typography>
+        {error.includes('log in') && (
+          <Button 
+            variant="contained" 
+            color="primary" 
+            onClick={() => navigate('/login')}
+            sx={{ mt: 2 }}
+          >
+            Go to Login
+          </Button>
+        )}
+      </Box>
+    );
+  }
 
   return (
     <Box>
@@ -57,8 +124,8 @@ const RegistrationDashboard = () => {
         {/* Statistics Cards */}
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
-            title="Pending Certifications"
-            value={stats.pendingCertifications}
+            title="Pending Parcels"
+            value={stats.pendingParcels}
             icon={<Assignment />}
             color="#f57c00"
           />
@@ -120,7 +187,6 @@ const RegistrationDashboard = () => {
               Recent Activity
             </Typography>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {/* Add your recent activity list here */}
               <Typography color="text.secondary">
                 No recent activities to display
               </Typography>
@@ -128,15 +194,14 @@ const RegistrationDashboard = () => {
           </Paper>
         </Grid>
 
-        {/* Pending Certifications */}
+        {/* Pending Parcels */}
         <Grid item xs={12}>
           <Paper sx={{ p: 3 }}>
             <Typography variant="h6" gutterBottom>
-              Pending Certifications
+              Pending Parcels
             </Typography>
-            {/* Add your certifications table or list here */}
             <Typography color="text.secondary">
-              No pending certifications to display
+              No pending parcels to display
             </Typography>
           </Paper>
         </Grid>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect} from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Paper,
@@ -20,6 +20,7 @@ import {
   DialogContent,
   DialogActions,
   Grid,
+  CircularProgress,
 } from '@mui/material';
 import {
   Visibility as VisibilityIcon,
@@ -37,50 +38,67 @@ const CertificateHistory = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCertificate, setSelectedCertificate] = useState(null);
   const [openDialog, setOpenDialog] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   // Helper to map backend fields to frontend fields
   const mapCertificate = (cert) => ({
     certificateNumber: cert.certificateNumber || cert.certificate_number || '',
-    ownerName: (cert.firstNameEn && cert.lastNameEn)
-      ? `${cert.firstNameEn} ${cert.lastNameEn}`
-      : (cert.firstNameAm && cert.lastNameAm)
-        ? `${cert.firstNameAm} ${cert.lastNameAm}`
+    ownerName: (cert.ownerFirstName && cert.ownerLastName)
+      ? `${cert.ownerFirstName} ${cert.ownerLastName}`
+      : (cert.ownerNameAm && cert.ownerNameAm)
+        ? `${cert.ownerNameAm.firstName} ${cert.ownerNameAm.lastName}`
         : cert.ownerName || cert.owner_name || cert.owner?.name || '',
     parcelNumber: cert.parcelNumber || cert.parcel_number || cert.parcelNo || '',
     issueDate: cert.issueDate || cert.issue_date || cert.dateOfIssuance || cert.issuanceDate || '',
     expiryDate: cert.expiryDate || cert.expiry_date || cert.expirationDate || '',
     status: cert.status || '',
     _id: cert._id || cert.id,
-    // ...add more fields as needed
+    landLocation: cert.landLocation || {},
+    landSize: cert.landSize || '',
+    sizeUnit: cert.sizeUnit || '',
+    landUseType: cert.landUseType || '',
+    documentPaths: cert.documentPaths || [],
   });
 
   // Fetch certificates from backend
   const fetchCertificates = async () => {
     try {
+      setLoading(true);
       const token = localStorage.getItem('token');
+      if (!token) {
+        setError('Please log in to view certificates');
+        return;
+      }
+
       const response = await fetch('/api/certificates', {
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
       const data = await response.json();
-      console.log('Fetched certificates:', data); // Debug log
+      
       if (data.success) {
         const mapped = data.data.map(mapCertificate);
         setAllCertificates(mapped);
         setCertificates(mapped);
       } else {
+        setError(data.message || 'Failed to fetch certificates');
         setAllCertificates([]);
         setCertificates([]);
       }
     } catch (err) {
+      setError('Failed to fetch certificates');
       setAllCertificates([]);
       setCertificates([]);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchCertificates();
   }, []);
-
 
   const handleChangePage = (event, newPage) => {
     setPage(newPage);
@@ -111,7 +129,7 @@ const CertificateHistory = () => {
   };
 
   const getStatusColor = (status) => {
-    switch (status) {
+    switch (status?.toLowerCase()) {
       case 'active':
         return 'success';
       case 'expired':
@@ -123,32 +141,95 @@ const CertificateHistory = () => {
     }
   };
 
-  const generateVerificationURL = (id) => {
-    // Replace with actual URL generation logic
-    return `https://example.com/verify/${id}`;
+  const handleDownloadCertificate = async (certificate) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        alert('Please log in to download certificates');
+        return;
+      }
+
+      // If the certificate has document paths, download the first document
+      if (certificate.documentPaths && certificate.documentPaths.length > 0) {
+        const response = await fetch(`/api/certificates/${certificate._id}/download`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (response.ok) {
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `certificate-${certificate.certificateNumber}.pdf`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+        } else {
+          alert('Failed to download certificate');
+        }
+      } else {
+        alert('No certificate document available for download');
+      }
+    } catch (error) {
+      console.error('Error downloading certificate:', error);
+      alert('Failed to download certificate');
+    }
   };
 
   // Delete certificate handler
   const handleDeleteCertificate = async (certificateId) => {
     const confirmDelete = window.confirm('Are you sure you want to delete this certificate? This action cannot be undone.');
     if (!confirmDelete) return;
+    
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`/api/certificates/${certificateId}`, {
         method: 'DELETE',
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
       const data = await response.json();
+      
       if (data.success) {
-        // Remove the deleted certificate from the list
         setCertificates((prev) => prev.filter(cert => cert._id !== certificateId));
+        setAllCertificates((prev) => prev.filter(cert => cert._id !== certificateId));
       } else {
-        alert(data.message || 'Failed to delete certificate.');
+        alert(data.message || 'Failed to delete certificate');
       }
     } catch (err) {
-      alert('Failed to delete certificate.');
+      alert('Failed to delete certificate');
     }
   };
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Typography color="error">{error}</Typography>
+        {error.includes('log in') && (
+          <Button 
+            variant="contained" 
+            color="primary" 
+            onClick={() => window.location.href = '/login'}
+            sx={{ mt: 2 }}
+          >
+            Go to Login
+          </Button>
+        )}
+      </Box>
+    );
+  }
 
   return (
     <Box>
@@ -201,8 +282,8 @@ const CertificateHistory = () => {
                     <TableCell>{certificate.certificateNumber}</TableCell>
                     <TableCell>{certificate.ownerName}</TableCell>
                     <TableCell>{certificate.parcelNumber}</TableCell>
-                    <TableCell>{certificate.issueDate}</TableCell>
-                    <TableCell>{certificate.expiryDate}</TableCell>
+                    <TableCell>{new Date(certificate.issueDate).toLocaleDateString()}</TableCell>
+                    <TableCell>{new Date(certificate.expiryDate).toLocaleDateString()}</TableCell>
                     <TableCell>
                       <Chip
                         label={certificate.status}
@@ -219,7 +300,7 @@ const CertificateHistory = () => {
                       </IconButton>
                       <IconButton
                         color="primary"
-                        onClick={() => {/* Add download logic */}}
+                        onClick={() => handleDownloadCertificate(certificate)}
                       >
                         <DownloadIcon />
                       </IconButton>
@@ -245,6 +326,7 @@ const CertificateHistory = () => {
         </TableContainer>
       </Paper>
 
+      {/* Certificate Details Dialog */}
       <Dialog
         open={openDialog}
         onClose={handleCloseDialog}
@@ -254,58 +336,72 @@ const CertificateHistory = () => {
         <DialogTitle>
           Certificate Details
         </DialogTitle>
-        <DialogContent dividers>
+        <DialogContent>
           {selectedCertificate && (
             <Grid container spacing={3}>
-              <Grid item xs={8}>
-                <Typography variant="subtitle1" gutterBottom>
+              <Grid item xs={12}>
+                <Typography variant="h6" gutterBottom>
                   Certificate Information
                 </Typography>
-                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-                  <Typography color="text.secondary">Certificate Number:</Typography>
-                  <Typography>{selectedCertificate.certificateNumber}</Typography>
-                  
-                  <Typography color="text.secondary">Owner Name:</Typography>
-                  <Typography>{selectedCertificate.ownerName}</Typography>
-                  
-                  <Typography color="text.secondary">Parcel Number:</Typography>
-                  <Typography>{selectedCertificate.parcelNumber}</Typography>
-                  
-                  <Typography color="text.secondary">Issue Date:</Typography>
-                  <Typography>{selectedCertificate.issueDate}</Typography>
-                  
-                  <Typography color="text.secondary">Expiry Date:</Typography>
-                  <Typography>{selectedCertificate.expiryDate}</Typography>
-                  
-                  <Typography color="text.secondary">Status:</Typography>
-                  <Chip
-                    label={selectedCertificate.status}
-                    color={getStatusColor(selectedCertificate.status)}
-                    size="small"
-                  />
-                </Box>
-
-                <Box sx={{ mt: 3 }}>
-                  <Typography variant="subtitle1" gutterBottom>
-                    Certificate History
-                  </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary' }}>
-                    <HistoryIcon />
-                    <Typography>No previous versions found</Typography>
-                  </Box>
-                </Box>
+                <Grid container spacing={2}>
+                  <Grid item xs={6}>
+                    <Typography variant="subtitle2">Certificate Number</Typography>
+                    <Typography>{selectedCertificate.certificateNumber}</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="subtitle2">Status</Typography>
+                    <Chip
+                      label={selectedCertificate.status}
+                      color={getStatusColor(selectedCertificate.status)}
+                      size="small"
+                    />
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="subtitle2">Owner Name</Typography>
+                    <Typography>{selectedCertificate.ownerName}</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="subtitle2">Parcel Number</Typography>
+                    <Typography>{selectedCertificate.parcelNumber}</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="subtitle2">Issue Date</Typography>
+                    <Typography>{new Date(selectedCertificate.issueDate).toLocaleDateString()}</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="subtitle2">Expiry Date</Typography>
+                    <Typography>{new Date(selectedCertificate.expiryDate).toLocaleDateString()}</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="subtitle2">Land Location</Typography>
+                    <Typography>{selectedCertificate.landLocation?.region || 'N/A'}</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="subtitle2">Land Size</Typography>
+                    <Typography>{selectedCertificate.landSize} {selectedCertificate.sizeUnit}</Typography>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle2">Land Use Type</Typography>
+                    <Typography>{selectedCertificate.landUseType}</Typography>
+                  </Grid>
+                </Grid>
               </Grid>
-              <Grid item xs={4}>
-                <Box sx={{ textAlign: 'center' }}>
-                  <Typography variant="subtitle2" gutterBottom>
-                    Scan QR Code to Verify
+
+              <Grid item xs={12}>
+                <Box sx={{ mt: 3 }}>
+                  <Typography variant="h6" gutterBottom>
+                    Download Options
                   </Typography>
-                  <Box sx={{ mb: 2 }}>
-                    <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${generateVerificationURL(selectedCertificate.id)}`} alt="QR Code" />
+                  <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      startIcon={<DownloadIcon />}
+                      onClick={() => handleDownloadCertificate(selectedCertificate)}
+                    >
+                      Download Certificate
+                    </Button>
                   </Box>
-                  <Typography variant="caption" color="textSecondary">
-                    Verification URL will be valid indefinitely
-                  </Typography>
                 </Box>
               </Grid>
             </Grid>
@@ -313,13 +409,6 @@ const CertificateHistory = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog}>Close</Button>
-          <Button
-            variant="contained"
-            startIcon={<DownloadIcon />}
-            onClick={() => {/* Add download logic */}}
-          >
-            Download Certificate
-          </Button>
         </DialogActions>
       </Dialog>
     </Box>

@@ -2,13 +2,6 @@
 
 import mongoose from "mongoose";
 
-const childSchema = new mongoose.Schema({
-  name: String,
-  nameAm: String,
-  age: Number,
-  gender: { type: String, enum: ["male", "female", "other"] },
-});
-
 const landLocationSchema = new mongoose.Schema({
   region: String,
   regionAm: String,
@@ -74,8 +67,6 @@ const certificateSchema = new mongoose.Schema(
     motherName: String,
     motherNameAm: String,
     maritalStatus: { type: String, enum: ["single", "married", "divorced", "widowed"] },
-    // Children
-    children: [childSchema],
     // Land Location
     landLocation: landLocationSchema,
     // Land Details

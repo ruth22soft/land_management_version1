@@ -10,6 +10,8 @@ import {
   bulkUpdateParcelStatus,
 } from '../controllers/parcel.controller.js';
 import { authenticate, authorize } from '../middleware/auth.js';
+import Certificate from '../models/certificate.model.js';
+import Parcel from '../models/parcel.model.js';
 
 const router = express.Router();
 
@@ -27,6 +29,7 @@ const router = express.Router();
 
 // // Delete a parcel by ID (Admin or Registration role)
 // router.delete('/:id', authenticate, authorize(['admin', 'registration']), deleteParcel);
+
 // Create a new parcel
 router.post("/", createParcel);
 
@@ -50,5 +53,27 @@ router.put("/:parcelId/status", updateParcelStatus);
 
 // Bulk update parcel statuses
 router.put("/bulk/status", bulkUpdateParcelStatus);
+
+// Get pending registrations (parcels with 'Pending' status)
+router.get('/pending', authenticate, authorize(['registration']), async (req, res) => {
+  try {
+    // Find parcels with 'Pending' status
+    const pendingParcels = await Parcel.find({
+      status: 'Pending'
+    }).sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      data: pendingParcels
+    });
+  } catch (error) {
+    console.error('Error fetching pending registrations:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching pending registrations',
+      error: error.message
+    });
+  }
+});
 
 export default router;

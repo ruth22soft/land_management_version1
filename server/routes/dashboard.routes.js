@@ -19,20 +19,12 @@ router.get('/test', (req, res) => {
 router.get('/registration', authenticate, authorize(['registration']), async (req, res) => {
   try {
     // Count pending and active certificates
-    // Note: if status field is not defined in model, we'll count all certificates
-    let pendingCertifications = 0;
-    let completedCertifications = 0;
+    const completedCertifications = await Certificate.countDocuments();
     
-    try {
-      // Count all certificates as completed since status field may not exist
-      completedCertifications = await Certificate.countDocuments();
-      
-      // For dashboard display purposes, show 0 pending
-      pendingCertifications = 0;
-    } catch (err) {
-      console.log('Error counting certificates:', err);
-      completedCertifications = await Certificate.countDocuments();
-    }
+    // Count pending parcels (parcels without certificates)
+    const pendingParcels = await Parcel.countDocuments({
+      _id: { $nin: await Certificate.distinct('parcelId') }
+    });
     
     // Count active parcels
     const activeParcels = await Parcel.countDocuments();
@@ -45,7 +37,7 @@ router.get('/registration', authenticate, authorize(['registration']), async (re
     });
 
     res.json({
-      pendingCertifications,
+      pendingParcels,
       completedCertifications,
       activeParcels,
       monthlyRegistrations
@@ -225,7 +217,7 @@ router.get('/recent-activity', async (req, res) => {
     const recentCertificates = await Certificate.find()
       .sort({ createdAt: -1 })
       .limit(limit)
-      .select('certificateNumber firstNameEn lastNameEn createdAt')
+      .select('certificateNumber ownerFirstName ownerLastName createdAt')
       .lean();
     
     // Format the data for the frontend
@@ -233,7 +225,7 @@ router.get('/recent-activity', async (req, res) => {
       id: cert._id,
       type: 'certificate',
       title: `Certificate Created: ${cert.certificateNumber || 'No Number'}`,
-      owner: `${cert.firstNameEn || ''} ${cert.lastNameEn || ''}`.trim() || 'Unknown Owner',
+      owner: `${cert.ownerFirstName || ''} ${cert.ownerLastName || ''}`.trim() || 'Unknown Owner',
       date: cert.createdAt,
       by: 'Registration Office'
     }));
@@ -256,7 +248,7 @@ router.get('/pending-certifications', async (req, res) => {
     const recentCertificates = await Certificate.find()
       .sort({ createdAt: -1 })
       .limit(10)
-      .select('certificateNumber firstNameEn lastNameEn createdAt regionEn')
+      .select('certificateNumber ownerFirstName ownerLastName createdAt landLocation')
       .lean();
       
     // Format for display
@@ -264,10 +256,10 @@ router.get('/pending-certifications', async (req, res) => {
       return {
         _id: cert._id,
         certificateNumber: cert.certificateNumber || 'No Number',
-        firstNameEn: cert.firstNameEn || 'Unknown',
-        lastNameEn: cert.lastNameEn || 'Unknown',
+        firstNameEn: cert.ownerFirstName || 'Unknown',
+        lastNameEn: cert.ownerLastName || 'Unknown',
         createdAt: cert.createdAt,
-        region: cert.regionEn || 'Unknown',
+        region: cert.landLocation?.region || 'Unknown',
         status: 'Pending' // Default status for UI display
       };
     });

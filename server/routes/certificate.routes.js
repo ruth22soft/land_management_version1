@@ -17,7 +17,12 @@ router.post(
   '/',
   authenticate,
   authorize(['registration']),
-  upload.array('documents', 4),
+  upload.fields([
+    { name: 'landPhoto', maxCount: 1 },
+    { name: 'boundaryPhoto', maxCount: 1 },
+    { name: 'ownerPhoto', maxCount: 1 },
+    { name: 'landPlanImage', maxCount: 1 }
+  ]),
   createCertificate
 );
 

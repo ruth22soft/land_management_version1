@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Box,
   Paper,
@@ -25,7 +25,9 @@ import {
   VerifiedUser as VerifiedUserIcon,
   Close as CloseIcon,
 } from '@mui/icons-material';
+import { Html5QrcodeScanner } from 'html5-qrcode';
 import CertificateGenerator from '../certification/CertificateGenerator';
+import axios from 'axios';
 
 const CertificateVerification = () => {
   const [certificateNumber, setCertificateNumber] = useState('');
@@ -35,49 +37,22 @@ const CertificateVerification = () => {
   const [activeTab, setActiveTab] = useState(0);
   const [showScanner, setShowScanner] = useState(false);
   const [showCertificate, setShowCertificate] = useState(false);
-  const videoRef = useRef(null);
-  const scannerIntervalRef = useRef(null);
+  const scannerRef = useRef(null);
 
-  // Mock verification data - replace with actual API call
-  const mockCertificateData = {
-    certificateNumber: 'LRMS-2025-123456',
-    isValid: true,
-    ownerFirstName: 'Abebe',
-    ownerLastName: 'Kebede',
-    ownerFirstNameAm: 'አበበ',
-    ownerLastNameAm: 'ከበደ',
-    nationalId: 'ETH123456',
-    parcelNumber: 'P001',
-    dateOfIssuance: '2025-01-15',
-    expirationDate: '2030-01-15',
-    landLocation: {
-      region: 'Addis Ababa',
-      woreda: 'Bole',
-      kebele: '05'
-    },
-    landSize: '500',
-    sizeUnit: 'sq meters',
-    landUseType: 'Residential',
-    boundaries: {
-      north: 'Road',
-      south: 'P002',
-      east: 'P003',
-      west: 'Public Park',
-    },
-    legalRights: {
-      en: 'This certificate grants the registered owner the following rights: Right to use the land for the specified purpose...',
-      am: 'ይህ የምስክር ወረቀት ለተመዘገበው ባለቤት የሚከተሉትን መብቶች ይሰጣል: መሬቱን ለተገለጸው ዓላማ የመጠቀም መብት...'
-    },
-    termsAndConditions: {
-      en: 'The owner must comply with all local zoning regulations...',
-      am: 'ባለቤቱ ከሁሉም የአካባቢ ዞን ደንቦች ጋር መስማማት አለበት...'
-    },
-    signatures: {
-      owner: null,
-      registrationOfficer: null
-    },
-    issuingAuthority: 'Land Registration Authority',
-    issuingAuthorityAm: 'የመሬት ምዝገባ ባለስልጣን'
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return 'N/A';
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'N/A';
+    }
   };
 
   const handleVerification = async () => {
@@ -86,29 +61,17 @@ const CertificateVerification = () => {
     setVerificationResult(null);
 
     try {
-      // Simulate API call delay
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      const response = await axios.get(`/api/certificates/verify/${certificateNumber}`);
+      console.log('Verification Response:', response.data); // Debug log
 
-      // Retrieve from localStorage for demo purposes
-      const existingRecords = JSON.parse(localStorage.getItem('certificateRecords') || '[]');
-      const certificate = existingRecords.find(
-        (record) => record.certificateNumber === certificateNumber
-      );
-
-      if (certificate) {
-        setVerificationResult({
-          ...certificate,
-          isValid: true
-        });
-      } else if (certificateNumber === mockCertificateData.certificateNumber) {
-        // Use mock data for demo
-        setVerificationResult(mockCertificateData);
+      if (response.data.success && response.data.data) {
+        setVerificationResult(response.data.data);
       } else {
         setError('Certificate not found. Please check the certificate number and try again.');
       }
     } catch (err) {
       console.error('Verification error:', err);
-      setError('An error occurred during verification. Please try again.');
+      setError(err.response?.data?.message || 'An error occurred during verification. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -116,79 +79,86 @@ const CertificateVerification = () => {
 
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
+    if (newValue === 1) {
+      startQRScanner();
+    } else {
+      stopQRScanner();
+    }
   };
 
-  const startQRScanner = async () => {
+  const startQRScanner = () => {
     setShowScanner(true);
     setError('');
 
-    try {
-      const constraints = { video: { facingMode: 'environment' } };
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        
-        // Wait for video to be ready
-        await new Promise((resolve) => {
-          videoRef.current.onloadedmetadata = () => {
-            resolve();
-          };
-        });
-        
-        // Start playing the video
-        videoRef.current.play();
-        
-        // Set up scanning interval
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        
-        scannerIntervalRef.current = setInterval(() => {
-          if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
-            // Set canvas dimensions to match video
-            canvas.width = videoRef.current.videoWidth;
-            canvas.height = videoRef.current.videoHeight;
-            
-            // Draw current video frame to canvas
-            ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-            
-            // Here you would add QR code detection logic
-            // For this demo, we'll simulate finding a QR code after a few seconds
-            setTimeout(() => {
-              if (scannerIntervalRef.current) {
-                stopQRScanner();
-                setCertificateNumber(mockCertificateData.certificateNumber);
-                handleVerification();
-              }
-            }, 3000);
-          }
-        }, 500);
+    // Wait for the DOM to update and element to be available
+    setTimeout(() => {
+      if (!scannerRef.current) {
+        const qrReaderElement = document.getElementById('qr-reader');
+        if (qrReaderElement) {
+          scannerRef.current = new Html5QrcodeScanner(
+            'qr-reader',
+            {
+              fps: 10,
+              qrbox: { width: 250, height: 250 },
+              aspectRatio: 1.0,
+              showTorchButtonIfSupported: true,
+              showZoomSliderIfSupported: true,
+              defaultZoomValueIfSupported: 2,
+            },
+            false
+          );
+
+          scannerRef.current.render(onScanSuccess, onScanFailure);
+        } else {
+          console.error('QR reader element not found');
+          setError('Failed to initialize QR scanner. Please try again.');
+          setShowScanner(false);
+        }
       }
-    } catch (err) {
-      console.error('Error accessing camera:', err);
-      setError('Could not access camera. Please ensure camera permissions are granted.');
-      setShowScanner(false);
-    }
+    }, 100);
   };
 
   const stopQRScanner = () => {
-    if (scannerIntervalRef.current) {
-      clearInterval(scannerIntervalRef.current);
-      scannerIntervalRef.current = null;
+    if (scannerRef.current) {
+      scannerRef.current.clear();
+      scannerRef.current = null;
     }
-    
-    if (videoRef.current && videoRef.current.srcObject) {
-      const tracks = videoRef.current.srcObject.getTracks();
-      tracks.forEach(track => track.stop());
-      videoRef.current.srcObject = null;
-    }
-    
     setShowScanner(false);
+  };
+
+  const onScanSuccess = async (decodedText) => {
+    try {
+      // Stop the scanner after successful scan
+      stopQRScanner();
+      
+      // Set the scanned certificate number
+      setCertificateNumber(decodedText);
+      
+      // Verify the certificate
+      await handleVerification();
+    } catch (error) {
+      console.error('Error processing QR code:', error);
+      setError('Error processing QR code. Please try again.');
+    }
+  };
+
+  const onScanFailure = (error) => {
+    // Handle scan failure silently
+    console.warn('QR Code scan failed:', error);
   };
 
   const viewFullCertificate = () => {
     setShowCertificate(true);
   };
+
+  // Cleanup scanner on component unmount
+  useEffect(() => {
+    return () => {
+      if (scannerRef.current) {
+        stopQRScanner();
+      }
+    };
+  }, []);
 
   return (
     <Box sx={{ maxWidth: 800, mx: 'auto', p: 3 }}>
@@ -244,22 +214,8 @@ const CertificateVerification = () => {
                 </Button>
               </>
             ) : (
-              <Box sx={{ position: 'relative' }}>
-                <video 
-                  ref={videoRef} 
-                  style={{ width: '100%', maxHeight: '300px', background: '#000' }}
-                ></video>
-                <Box 
-                  sx={{ 
-                    position: 'absolute', 
-                    top: '50%', 
-                    left: '50%', 
-                    transform: 'translate(-50%, -50%)',
-                    border: '2px solid #fff', 
-                    width: '200px', 
-                    height: '200px'
-                  }}
-                ></Box>
+              <Box sx={{ position: 'relative', width: '100%', maxWidth: '500px', mx: 'auto' }}>
+                <div id="qr-reader" style={{ width: '100%' }}></div>
                 <Button
                   variant="contained"
                   color="error"
@@ -291,9 +247,9 @@ const CertificateVerification = () => {
         <Card>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-              <VerifiedUserIcon color="success" sx={{ mr: 1 }} />
-              <Typography variant="h6" color="success.main">
-                Certificate Verified
+              <VerifiedUserIcon color={verificationResult.status === 'expired' ? 'error' : 'success'} sx={{ mr: 1 }} />
+              <Typography variant="h6" color={verificationResult.status === 'expired' ? 'error.main' : 'success.main'}>
+                Certificate {verificationResult.status === 'expired' ? 'Expired' : 'Verified'}
               </Typography>
             </Box>
 
@@ -311,6 +267,12 @@ const CertificateVerification = () => {
                     <Typography>{verificationResult.certificateNumber}</Typography>
                   </Grid>
                   <Grid item xs={6}>
+                    <Typography color="text.secondary">Registration Number</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography>{verificationResult.registrationNumber}</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
                     <Typography color="text.secondary">Owner Name</Typography>
                   </Grid>
                   <Grid item xs={6}>
@@ -319,16 +281,30 @@ const CertificateVerification = () => {
                     </Typography>
                   </Grid>
                   <Grid item xs={6}>
+                    <Typography color="text.secondary">Owner Name (Amharic)</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography>
+                      {verificationResult.ownerFirstNameAm} {verificationResult.ownerLastNameAm}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography color="text.secondary">National ID</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography>{verificationResult.nationalId}</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
                     <Typography color="text.secondary">Issue Date</Typography>
                   </Grid>
                   <Grid item xs={6}>
-                    <Typography>{verificationResult.dateOfIssuance}</Typography>
+                    <Typography>{formatDate(verificationResult.dateOfIssuance)}</Typography>
                   </Grid>
                   <Grid item xs={6}>
                     <Typography color="text.secondary">Expiry Date</Typography>
                   </Grid>
                   <Grid item xs={6}>
-                    <Typography>{verificationResult.expirationDate || 'N/A'}</Typography>
+                    <Typography>{formatDate(verificationResult.expirationDate)}</Typography>
                   </Grid>
                 </Grid>
               </Grid>
@@ -351,6 +327,16 @@ const CertificateVerification = () => {
                   <Grid item xs={6}>
                     <Typography>
                       {verificationResult.landLocation?.region}, {verificationResult.landLocation?.woreda}
+                      {verificationResult.landLocation?.kebele && `, Kebele ${verificationResult.landLocation.kebele}`}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography color="text.secondary">Location (Amharic)</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography>
+                      {verificationResult.landLocation?.regionAm}, {verificationResult.landLocation?.woredaAm}
+                      {verificationResult.landLocation?.kebeleAm && `, ቀበሌ ${verificationResult.landLocation.kebeleAm}`}
                     </Typography>
                   </Grid>
                   <Grid item xs={6}>
@@ -363,7 +349,37 @@ const CertificateVerification = () => {
                     <Typography color="text.secondary">Land Use</Typography>
                   </Grid>
                   <Grid item xs={6}>
-                    <Typography>{verificationResult.landUseType}</Typography>
+                    <Typography>
+                      {verificationResult.landUseType}
+                      {verificationResult.landUseTypeAm && ` (${verificationResult.landUseTypeAm})`}
+                    </Typography>
+                  </Grid>
+                </Grid>
+              </Grid>
+
+              <Grid item xs={12}>
+                <Typography variant="subtitle1" gutterBottom>
+                  Additional Information
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                <Grid container spacing={2}>
+                  <Grid item xs={6}>
+                    <Typography color="text.secondary">Issuing Authority</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography>
+                      {verificationResult.issuingAuthority}
+                      {verificationResult.issuingAuthorityAm && ` (${verificationResult.issuingAuthorityAm})`}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography color="text.secondary">Registration Officer</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography>
+                      {verificationResult.registrationOfficer}
+                      {verificationResult.registrationOfficerAm && ` (${verificationResult.registrationOfficerAm})`}
+                    </Typography>
                   </Grid>
                 </Grid>
               </Grid>
